@@ -11,7 +11,32 @@ import {
 } from 'react-native';
 import { Bank, MonthlyCashback, ScanResult, CashbackItem } from '../types';
 import { MONTH_NAMES_RU } from '../constants/banks';
-import { X, Check, Trash2, Plus, Sparkles, AlertTriangle } from 'lucide-react-native';
+import {
+  X,
+  Check,
+  Trash2,
+  Plus,
+  Sparkles,
+  AlertTriangle,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react-native';
+
+const SHORT_MONTHS_RU = [
+  'Янв',
+  'Фев',
+  'Мар',
+  'Апр',
+  'Май',
+  'Июн',
+  'Июл',
+  'Авг',
+  'Сен',
+  'Окт',
+  'Ноя',
+  'Дек',
+];
 
 interface ScanReviewModalProps {
   visible: boolean;
@@ -38,21 +63,21 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
   useEffect(() => {
     if (scanResult) {
       // Find matching bank
-      let matched = banks.find((b) => b.id === scanResult.bankId);
-      if (!matched && scanResult.bankName) {
-        matched = banks.find(
-          (b) =>
-            b.name.toLowerCase().includes(scanResult.bankName.toLowerCase()) ||
-            scanResult.bankName.toLowerCase().includes(b.shortName.toLowerCase())
-        );
-      }
+      const matched = banks.find(
+        (b) =>
+          b.id === scanResult.bankId ||
+          b.name.toLowerCase().includes(scanResult.bankName.toLowerCase()) ||
+          b.shortName.toLowerCase().includes(scanResult.bankName.toLowerCase())
+      );
       setSelectedBankId(matched ? matched.id : banks[0]?.id || 'tbank');
 
+      // Month & Year
       setMonth(typeof scanResult.month === 'number' ? scanResult.month : new Date().getMonth());
       setYear(typeof scanResult.year === 'number' ? scanResult.year : new Date().getFullYear());
 
+      // Items
       setItems(
-        (scanResult.items || []).map((item, idx) => ({
+        scanResult.items.map((item, idx) => ({
           id: `${Date.now()}-${idx}`,
           category: item.category,
           percent: item.percent,
@@ -118,9 +143,9 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
           </View>
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-            {/* Image Preview & Bank Match */}
+            {/* Bank Selector */}
             <View style={styles.metaCard}>
-              <Text style={styles.label}>Определенный банк:</Text>
+              <Text style={styles.label}>Определенный банк (нажмите для смены):</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bankPicker}>
                 {banks.map((b) => {
                   const isSelected = b.id === selectedBankId;
@@ -147,17 +172,68 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
                 })}
               </ScrollView>
 
-              <Text style={[styles.label, { marginTop: 12 }]}>Месяц начисления:</Text>
-              <View style={styles.monthRow}>
-                <Text style={styles.monthValue}>
-                  {MONTH_NAMES_RU[month]} {year}
+              {/* Interactive Month & Year Picker */}
+              <View style={styles.monthHeaderRow}>
+                <Text style={styles.label}>Месяц сохранения:</Text>
+                <View style={styles.yearControl}>
+                  <TouchableOpacity
+                    style={styles.yearBtn}
+                    onPress={() => setYear(year - 1)}
+                  >
+                    <ChevronLeft size={16} color="#38BDF8" />
+                  </TouchableOpacity>
+                  <Text style={styles.yearText}>{year}</Text>
+                  <TouchableOpacity
+                    style={styles.yearBtn}
+                    onPress={() => setYear(year + 1)}
+                  >
+                    <ChevronRight size={16} color="#38BDF8" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Month Chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.monthPicker}
+                contentContainerStyle={styles.monthPickerContent}
+              >
+                {SHORT_MONTHS_RU.map((mName, idx) => {
+                  const isCurrent = idx === month;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.monthChip,
+                        isCurrent && styles.monthChipActive,
+                      ]}
+                      onPress={() => setMonth(idx)}
+                    >
+                      <Text
+                        style={[
+                          styles.monthChipText,
+                          isCurrent && styles.monthChipTextActive,
+                        ]}
+                      >
+                        {mName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.selectedMonthSummary}>
+                <Calendar size={14} color="#FFDD2D" style={{ marginRight: 6 }} />
+                <Text style={styles.selectedMonthSummaryText}>
+                  Кэшбэк запишется на: <Text style={{ color: '#FFDD2D', fontWeight: '700' }}>{MONTH_NAMES_RU[month]} {year}</Text>
                 </Text>
               </View>
             </View>
 
             {/* Recognized Items List */}
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Распознанные категории ({items.length})</Text>
+              <Text style={styles.sectionTitle}>Категории кэшбэка ({items.length})</Text>
               <TouchableOpacity style={styles.addSmallBtn} onPress={handleAddItem}>
                 <Plus size={14} color="#38BDF8" style={{ marginRight: 4 }} />
                 <Text style={styles.addSmallBtnText}>Добавить</Text>
@@ -182,16 +258,16 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
                   <TextInput
                     style={styles.categoryInput}
                     value={item.category}
-                    onChangeText={(val) => handleUpdateItem(item.id, 'category', val)}
                     placeholder="Название категории"
                     placeholderTextColor="#64748B"
+                    onChangeText={(val) => handleUpdateItem(item.id, 'category', val)}
                   />
                   <TextInput
                     style={styles.noteInput}
                     value={item.note || ''}
+                    placeholder="Примечание (необязательно)"
+                    placeholderTextColor="#475569"
                     onChangeText={(val) => handleUpdateItem(item.id, 'note', val)}
-                    placeholder="Условие / Лимит (необязательно)"
-                    placeholderTextColor="#64748B"
                   />
                 </View>
 
@@ -199,18 +275,30 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
                   style={styles.deleteItemBtn}
                   onPress={() => handleRemoveItem(item.id)}
                 >
-                  <Trash2 size={16} color="#EF4444" />
+                  <Trash2 size={18} color="#EF4444" />
                 </TouchableOpacity>
               </View>
             ))}
+
+            {items.length === 0 && (
+              <View style={styles.emptyItems}>
+                <AlertTriangle size={24} color="#F59E0B" style={{ marginBottom: 6 }} />
+                <Text style={styles.emptyItemsText}>
+                  Не удалось распознать категории автоматически.
+                </Text>
+                <TouchableOpacity style={styles.addManualBtn} onPress={handleAddItem}>
+                  <Text style={styles.addManualBtnText}>Добавить вручную</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
 
-          {/* Footer */}
+          {/* Footer Actions */}
           <View style={styles.footer}>
             <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
               <Check size={18} color="#0F172A" style={{ marginRight: 8 }} />
               <Text style={styles.saveBtnText}>
-                Сохранить в {MONTH_NAMES_RU[month]}
+                Сохранить кэшбэк ({MONTH_NAMES_RU[month]})
               </Text>
             </TouchableOpacity>
           </View>
@@ -223,7 +311,7 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -232,13 +320,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '90%',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#334155',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 18,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
@@ -247,8 +335,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#F8FAFC',
   },
   subtitle: {
@@ -256,20 +344,15 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 6,
   },
   scrollArea: {
     padding: 16,
   },
   metaCard: {
     backgroundColor: '#1E293B',
-    padding: 14,
     borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
     marginBottom: 16,
@@ -281,40 +364,98 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bankPicker: {
-    flexDirection: 'row',
+    marginBottom: 8,
   },
   bankChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: 8,
+    borderWidth: 1,
     marginRight: 8,
     backgroundColor: '#0F172A',
   },
   bankChipText: {
-    fontSize: 13,
-    color: '#F8FAFC',
+    fontSize: 12,
     fontWeight: '600',
+    color: '#F8FAFC',
   },
-  monthRow: {
+  monthHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  yearControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#0F172A',
-    padding: 8,
     borderRadius: 8,
-    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  monthValue: {
-    fontSize: 14,
+  yearBtn: {
+    padding: 4,
+  },
+  yearText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#38BDF8',
+    marginHorizontal: 6,
+  },
+  monthPicker: {
+    marginBottom: 8,
+  },
+  monthPickerContent: {
+    paddingVertical: 2,
+  },
+  monthChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0F172A',
+    marginRight: 6,
+  },
+  monthChipActive: {
+    backgroundColor: '#FFDD2D',
+    borderColor: '#FFDD2D',
+  },
+  monthChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  monthChipTextActive: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+  selectedMonthSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 221, 45, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 221, 45, 0.2)',
+  },
+  selectedMonthSummaryText: {
+    fontSize: 12,
+    color: '#F8FAFC',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#F8FAFC',
   },
@@ -324,7 +465,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
   },
   addSmallBtnText: {
     fontSize: 12,
@@ -335,8 +478,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1E293B',
-    padding: 10,
     borderRadius: 12,
+    padding: 10,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#334155',
@@ -382,6 +525,29 @@ const styles = StyleSheet.create({
   },
   deleteItemBtn: {
     padding: 6,
+  },
+  emptyItems: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+  },
+  emptyItemsText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  addManualBtn: {
+    backgroundColor: '#38BDF8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addManualBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   footer: {
     padding: 16,

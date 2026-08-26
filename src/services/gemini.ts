@@ -215,11 +215,25 @@ export class GeminiVisionService {
           parsed.bankName.toLowerCase().includes(b.shortName.toLowerCase()))
     );
 
+    let jsMonth = new Date().getMonth();
+    if (typeof parsed.month === 'number') {
+      if (parsed.month >= 1 && parsed.month <= 12) {
+        jsMonth = parsed.month - 1;
+      } else if (parsed.month >= 0 && parsed.month <= 11) {
+        jsMonth = parsed.month;
+      }
+    } else if (typeof parsed.month === 'string') {
+      const mLower = parsed.month.toLowerCase();
+      const ruMonths = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+      const foundIdx = ruMonths.findIndex((rm) => mLower.includes(rm));
+      if (foundIdx >= 0) jsMonth = foundIdx;
+    }
+
     return {
       bankName: parsed.bankName || 'Неизвестный банк',
       bankId: matchedBank?.id || 'custom',
-      month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
-      year: typeof parsed.year === 'number' ? parsed.year : new Date().getFullYear(),
+      month: jsMonth,
+      year: typeof parsed.year === 'number' && parsed.year >= 2020 ? parsed.year : new Date().getFullYear(),
       items: Array.isArray(parsed.items) ? parsed.items : [],
       confidence: 0.95,
       rawText: rawText,
