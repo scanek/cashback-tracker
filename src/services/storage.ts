@@ -165,6 +165,10 @@ export class StorageService {
     }
 
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(updated));
+    try {
+      const { WidgetService } = require('./widget');
+      WidgetService.updateWidget();
+    } catch {}
     return updated;
   }
 
@@ -182,6 +186,10 @@ export class StorageService {
         )
     );
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(filtered));
+    try {
+      const { WidgetService } = require('./widget');
+      WidgetService.updateWidget();
+    } catch {}
   }
 
   static async getSettings(): Promise<AppSettings> {

@@ -28,6 +28,26 @@
         "READ_MEDIA_IMAGES"
       ]
     },
+    "plugins": [
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "CashbackWidget",
+              "label": "Мои Кэшбеки",
+              "minWidth": "300dp",
+              "minHeight": "150dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "description": "Виджет топ категорий кэшбэка на текущий месяц",
+              "previewImage": "./assets/icon.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     },
