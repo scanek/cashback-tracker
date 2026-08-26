@@ -77,8 +77,10 @@ export class GeminiVisionService {
         return { success: false, message: 'Для этого ключа не найдено доступных моделей в Google AI Studio.' };
       }
 
-      // Pick preferred model
+      // Pick preferred model with priority for modern Gemini 3.x / 2.5 / 2.0
       const preferred =
+        visionModels.find((m) => m.name.includes('gemini-3.6-flash')) ||
+        visionModels.find((m) => m.name.includes('gemini-3')) ||
         visionModels.find((m) => m.name.includes('gemini-2.5-flash')) ||
         visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
         visionModels.find((m) => m.name.includes('gemini-1.5-flash')) ||
@@ -120,6 +122,9 @@ export class GeminiVisionService {
 
     const modelsToTry = [
       targetModel,
+      'gemini-3.6-flash',
+      'gemini-3.0-flash',
+      'gemini-3-flash',
       'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-2.0-flash-exp',
