@@ -39,6 +39,8 @@ const SYSTEM_PROMPT = `
 }
 `;
 
+export const EMBEDDED_GEMINI_API_KEY = 'AQ.Ab8RN6KLsZuKmY8EAtHjsWIDDBG0vAQvNtTPaChwQyNFPjbpKg';
+
 export class GeminiVisionService {
   /**
    * Clean and normalize API key string
@@ -54,7 +56,7 @@ export class GeminiVisionService {
    * Test API key and find working model from user's account
    */
   static async testApiKeyAndGetModel(apiKey: string): Promise<{ success: boolean; modelName?: string; message: string }> {
-    const cleanKey = this.sanitizeApiKey(apiKey);
+    const cleanKey = this.sanitizeApiKey(apiKey) || EMBEDDED_GEMINI_API_KEY;
     if (!cleanKey) {
       return { success: false, message: 'API ключ не введен' };
     }
@@ -104,7 +106,7 @@ export class GeminiVisionService {
     apiKey?: string,
     preferredModel?: string
   ): Promise<ScanResult> {
-    const cleanKey = this.sanitizeApiKey(apiKey || '');
+    const cleanKey = this.sanitizeApiKey(apiKey || '') || EMBEDDED_GEMINI_API_KEY;
     if (!cleanKey) {
       return this.mockSmartRecognition();
     }

@@ -9,9 +9,11 @@ const STORAGE_KEYS = {
   INITIALIZED: '@cashback_hub_initialized_v1',
 };
 
+export const EMBEDDED_GEMINI_API_KEY = 'AQ.Ab8RN6KLsZuKmY8EAtHjsWIDDBG0vAQvNtTPaChwQyNFPjbpKg';
+
 const DEFAULT_SETTINGS: AppSettings = {
-  geminiApiKey: '',
-  geminiModel: 'gemini-2.5-flash',
+  geminiApiKey: EMBEDDED_GEMINI_API_KEY,
+  geminiModel: 'gemini-3.6-flash',
   enableMonthlyReminders: true,
   activeTheme: 'dark',
 };
@@ -186,7 +188,16 @@ export class StorageService {
     try {
       await this.initializeDefaults();
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
-      return data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS;
+      if (!data) return DEFAULT_SETTINGS;
+      const parsed = JSON.parse(data);
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        geminiApiKey:
+          parsed.geminiApiKey && parsed.geminiApiKey.trim()
+            ? parsed.geminiApiKey
+            : EMBEDDED_GEMINI_API_KEY,
+      };
     } catch (e) {
       return DEFAULT_SETTINGS;
     }
