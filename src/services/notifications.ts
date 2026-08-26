@@ -19,7 +19,7 @@ try {
     });
   }
 } catch (e) {
-  console.warn('Notifications handler init skipped:', e);
+  // Gracefully ignored in Expo Go
 }
 
 export class NotificationService {
