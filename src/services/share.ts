@@ -1,4 +1,7 @@
 import { Share, Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import LZString from 'lz-string';
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { showNotification } from '../utils/alert';
@@ -14,29 +17,80 @@ export interface SharedPayload {
   allCashbacks?: MonthlyCashback[];
 }
 
-// Clean and robust UTF-8 Base64 encoding
-function encodeUtf8Base64(str: string): string {
-  try {
-    return btoa(
-      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-        String.fromCharCode(parseInt(p1, 16))
-      )
-    );
-  } catch {
-    return btoa(unescape(encodeURIComponent(str)));
-  }
+// Compact binary schema for compression
+interface CompactPayload {
+  v: number;
+  t: 1 | 2; // 1 = single_bank, 2 = full_month
+  m: number; // month
+  y: number; // year
+  b?: string; // bankId
+  n?: string; // bankName
+  i?: [string, number, string?][]; // [category, percent, note?]
+  c?: [string, [string, number, string?][]][]; // [bankId, [[category, percent, note?]]]
 }
 
-function decodeUtf8Base64(base64: string): string {
-  try {
-    return decodeURIComponent(
-      Array.prototype.map
-        .call(atob(base64), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-  } catch {
-    return decodeURIComponent(escape(atob(base64)));
+function serializeToCompact(payload: SharedPayload): CompactPayload {
+  if (payload.type === 'single_bank') {
+    return {
+      v: 2,
+      t: 1,
+      m: payload.month,
+      y: payload.year,
+      b: payload.bankId,
+      n: payload.bankName,
+      i: (payload.items || []).map((it) => [it.category, it.percent, it.note || '']),
+    };
   }
+
+  return {
+    v: 2,
+    t: 2,
+    m: payload.month,
+    y: payload.year,
+    c: (payload.allCashbacks || []).map((cb) => [
+      cb.bankId,
+      (cb.items || []).map((it) => [it.category, it.percent, it.note || '']),
+    ]),
+  };
+}
+
+function deserializeFromCompact(compact: CompactPayload): SharedPayload {
+  if (compact.t === 1) {
+    return {
+      version: 2,
+      type: 'single_bank',
+      month: compact.m,
+      year: compact.y,
+      bankId: compact.b,
+      bankName: compact.n,
+      items: (compact.i || []).map(([category, percent, note], idx) => ({
+        id: `item-${idx}-${Date.now()}`,
+        category,
+        percent,
+        note: note ? note : undefined,
+      })),
+    };
+  }
+
+  return {
+    version: 2,
+    type: 'full_month',
+    month: compact.m,
+    year: compact.y,
+    allCashbacks: (compact.c || []).map(([bankId, items], idx) => ({
+      id: `${bankId}-${compact.m}-${compact.y}`,
+      bankId,
+      month: compact.m,
+      year: compact.y,
+      updatedAt: new Date().toISOString(),
+      items: items.map(([category, percent, note], cIdx) => ({
+        id: `cb-${idx}-${cIdx}-${Date.now()}`,
+        category,
+        percent,
+        note: note ? note : undefined,
+      })),
+    })),
+  };
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -44,9 +98,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch {
-      // fallback
-    }
+    } catch {}
   }
 
   if (typeof document !== 'undefined') {
@@ -63,70 +115,101 @@ async function copyToClipboard(text: string): Promise<boolean> {
       const success = document.execCommand('copy');
       document.body.removeChild(textarea);
       return success;
-    } catch (e) {
-      console.warn('Clipboard fallback error:', e);
-    }
+    } catch {}
   }
   return false;
 }
 
 export class ShareService {
   /**
-   * Generates a compact payload code
+   * Generates an ultra-compact LZ-compressed code (only 100-200 characters)
    */
   static generateCode(payload: SharedPayload): string {
-    const jsonStr = JSON.stringify(payload);
-    return `CBHUB:${encodeUtf8Base64(jsonStr)}`;
+    try {
+      const compact = serializeToCompact(payload);
+      const json = JSON.stringify(compact);
+      const compressed = LZString.compressToEncodedURIComponent(json);
+      return `CBHUB2:${compressed}`;
+    } catch {
+      // Fallback to standard base64 if compression fails
+      const jsonStr = JSON.stringify(payload);
+      return `CBHUB:${btoa(unescape(encodeURIComponent(jsonStr)))}`;
+    }
   }
 
   /**
-   * Parses code or raw text from clipboard / file
+   * Parses code, LZ-compressed code, or raw JSON text
    */
   static parseCode(text: string): SharedPayload | null {
     if (!text || typeof text !== 'string') return null;
     const trimmed = text.trim();
 
-    // Check if raw JSON file content
+    // 1. Direct JSON file content
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
         const parsed = JSON.parse(trimmed);
         if (parsed.version && (parsed.type || parsed.items || parsed.allCashbacks)) {
           return parsed;
         }
+        if (parsed.v && (parsed.t === 1 || parsed.t === 2)) {
+          return deserializeFromCompact(parsed);
+        }
       } catch {}
     }
 
+    // 2. New ultra-compact LZString format: CBHUB2:...
+    const match2 = trimmed.match(/CBHUB2:([A-Za-z0-9-_~%]+)/);
+    if (match2 && match2[1]) {
+      try {
+        const decompressed = LZString.decompressFromEncodedURIComponent(match2[1]);
+        if (decompressed) {
+          const compact = JSON.parse(decompressed);
+          return deserializeFromCompact(compact);
+        }
+      } catch (e) {
+        console.warn('Failed to parse CBHUB2 code:', e);
+      }
+    }
+
+    // 3. Legacy Base64 formats: CBHUB:...
     const match = trimmed.match(/CBHUB:([A-Za-z0-9+/=]+)/);
     const base64Data = match ? match[1].trim() : trimmed.replace(/^CBHUB:/, '').trim();
 
-    if (!base64Data) return null;
-
-    try {
-      const decoded = decodeUtf8Base64(base64Data);
-      return JSON.parse(decoded);
-    } catch {
+    if (base64Data) {
       try {
-        // Fallback for legacy utf-16 format
-        const binary = atob(base64Data);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < bytes.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
+        const decoded = decodeURIComponent(
+          Array.prototype.map
+            .call(atob(base64Data), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        return JSON.parse(decoded);
+      } catch {
+        try {
+          const fallbackDecoded = decodeURIComponent(escape(atob(base64Data)));
+          return JSON.parse(fallbackDecoded);
+        } catch {
+          try {
+            const binary = atob(base64Data);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < bytes.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            const codeUnits = new Uint16Array(bytes.buffer);
+            let result = '';
+            for (let i = 0; i < codeUnits.length; i++) {
+              result += String.fromCharCode(codeUnits[i]);
+            }
+            return JSON.parse(result);
+          } catch {}
         }
-        const codeUnits = new Uint16Array(bytes.buffer);
-        let result = '';
-        for (let i = 0; i < codeUnits.length; i++) {
-          result += String.fromCharCode(codeUnits[i]);
-        }
-        return JSON.parse(result);
-      } catch (e) {
-        console.warn('Failed to parse share code:', e);
-        return null;
       }
     }
+
+    return null;
   }
 
   /**
-   * Universal share / copy handler for code
+   * Share / Copy code
    */
   static async shareCodeOnly(title: string, code: string, summary: string) {
     if (Platform.OS === 'web') {
@@ -134,7 +217,7 @@ export class ShareService {
       if (copied) {
         showNotification(
           '📋 Код кэшбэка скопирован!',
-          `Код для ${summary} скопирован в буфер обмена.\n\nПросто отправьте его супруге — ей достаточно нажать «Импорт» в приложении!`
+          `Код для ${summary} скопирован в буфер обмена.\n\nОн стал супер-коротким и легко помещается в любое сообщение Telegram / WhatsApp!`
         );
       } else {
         showNotification('Код кэшбэка', code);
@@ -152,32 +235,56 @@ export class ShareService {
   }
 
   /**
-   * Download JSON file (Web & universal)
+   * Share or Download an actual .JSON file (on Android opens native share sheet with file attachment!)
    */
-  static downloadFile(filename: string, content: string) {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const blob = new Blob([content], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      showNotification('Файл сохранен', `Файл ${filename} успешно скачан.`);
+  static async shareOrDownloadFile(filename: string, content: string) {
+    if (Platform.OS === 'web') {
+      if (typeof document !== 'undefined') {
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        showNotification('Файл сохранен', `Файл ${filename} успешно скачан в браузер.`);
+      }
     } else {
-      copyToClipboard(content);
-      showNotification('JSON сохранен', 'Данные скопированы в буфер обмена.');
+      try {
+        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+        await FileSystem.writeAsStringAsync(fileUri, content, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/json',
+            dialogTitle: 'Поделиться файлом кэшбэка',
+            UTI: 'public.json',
+          });
+        } else {
+          await Share.share({
+            message: content,
+            title: filename,
+          });
+        }
+      } catch (e: any) {
+        console.warn('Mobile file share error:', e);
+        await copyToClipboard(content);
+        showNotification('JSON скопирован', 'Не удалось открыть файл, данные скопированы в буфер обмена.');
+      }
     }
   }
 
   /**
-   * Share single bank's cashback - OUTPUTS ONLY COMPACT CODE
+   * Share single bank's cashback
    */
   static async shareBankCashback(bank: Bank, cashback: MonthlyCashback) {
     const monthName = MONTH_NAMES_RU[cashback.month] || 'Текущий месяц';
 
     const payload: SharedPayload = {
-      version: 1,
+      version: 2,
       type: 'single_bank',
       month: cashback.month,
       year: cashback.year,
@@ -200,7 +307,7 @@ export class ShareService {
   }
 
   /**
-   * Share all active cashbacks for the given month - OUTPUTS ONLY COMPACT CODE
+   * Share all active cashbacks for the given month
    */
   static async shareMonthCashback(
     cashbacks: MonthlyCashback[],
@@ -212,7 +319,7 @@ export class ShareService {
     const activeCashbacks = cashbacks.filter((c) => c.items && c.items.length > 0);
 
     const payload: SharedPayload = {
-      version: 1,
+      version: 2,
       type: 'full_month',
       month,
       year,
@@ -240,18 +347,17 @@ export class ShareService {
   }
 
   /**
-   * Export month cashbacks as a downloadable JSON file
+   * Export month cashbacks as a real .JSON file attachment / download
    */
-  static exportMonthFile(
+  static async exportMonthFile(
     cashbacks: MonthlyCashback[],
     month: number,
     year: number
   ) {
-    const monthName = MONTH_NAMES_RU[month] || 'month';
     const activeCashbacks = cashbacks.filter((c) => c.items && c.items.length > 0);
 
     const payload: SharedPayload = {
-      version: 1,
+      version: 2,
       type: 'full_month',
       month,
       year,
@@ -260,6 +366,6 @@ export class ShareService {
 
     const jsonStr = JSON.stringify(payload, null, 2);
     const fileName = `cashback_${month + 1}_${year}.json`;
-    this.downloadFile(fileName, jsonStr);
+    await this.shareOrDownloadFile(fileName, jsonStr);
   }
 }

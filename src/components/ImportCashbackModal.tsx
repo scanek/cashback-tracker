@@ -15,6 +15,8 @@ import { MONTH_NAMES_RU } from '../constants/banks';
 import { ShareService, SharedPayload } from '../services/share';
 import { StorageService } from '../services/storage';
 import { useTheme } from '../context/ThemeContext';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   X,
   Check,
@@ -80,6 +82,32 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
       setTargetYear(parsed.year);
     } else {
       setParsedData(null);
+    }
+  };
+
+  const handlePickDocument = async () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/plain', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const fileUri = result.assets[0].uri;
+        const content = await FileSystem.readAsStringAsync(fileUri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        if (content) {
+          handleTextChange(content);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Ошибка выбора файла', e.message || 'Не удалось прочитать файл');
     }
   };
 
@@ -199,26 +227,24 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                 </Text>
 
                 {Platform.OS === 'web' && (
-                  <>
-                    <input
-                      type="file"
-                      ref={fileInputRef as any}
-                      style={{ display: 'none' }}
-                      accept=".json,application/json"
-                      onChange={handlePickFileWeb}
-                    />
-                    <TouchableOpacity
-                      style={[styles.uploadFileBtn, { borderColor: colors.accentBlue }]}
-                      onPress={() => fileInputRef.current?.click()}
-                      activeOpacity={0.7}
-                    >
-                      <Upload size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
-                      <Text style={[styles.uploadFileBtnText, { color: colors.accentBlue }]}>
-                        Выбрать .json файл
-                      </Text>
-                    </TouchableOpacity>
-                  </>
+                  <input
+                    type="file"
+                    ref={fileInputRef as any}
+                    style={{ display: 'none' }}
+                    accept=".json,application/json"
+                    onChange={handlePickFileWeb}
+                  />
                 )}
+                <TouchableOpacity
+                  style={[styles.uploadFileBtn, { borderColor: colors.accentBlue }]}
+                  onPress={handlePickDocument}
+                  activeOpacity={0.7}
+                >
+                  <Upload size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
+                  <Text style={[styles.uploadFileBtnText, { color: colors.accentBlue }]}>
+                    Выбрать .json файл
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <TextInput
