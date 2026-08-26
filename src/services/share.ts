@@ -1,6 +1,7 @@
 import { Share, Platform } from 'react-native';
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
 import { MONTH_NAMES_RU } from '../constants/banks';
+import { showNotification } from '../utils/alert';
 
 export interface SharedPayload {
   version: number;
@@ -39,6 +40,37 @@ function decodeUnicodeBase64(encoded: string): string {
     result += String.fromCharCode(codeUnits[i]);
   }
   return result;
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fallback to document.execCommand
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return success;
+    } catch (e) {
+      console.warn('Clipboard fallback error:', e);
+    }
+  }
+  return false;
 }
 
 export class ShareService {
@@ -81,6 +113,41 @@ export class ShareService {
   }
 
   /**
+   * Universal share handler supporting Web clipboard fallback and Mobile native share sheet
+   */
+  static async shareMessage(title: string, message: string) {
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          await navigator.share({ title, text: message });
+          return;
+        } catch (e: any) {
+          if (e.name === 'AbortError') return;
+        }
+      }
+
+      const copied = await copyToClipboard(message);
+      if (copied) {
+        showNotification(
+          '📋 Скопировано в буфер обмена!',
+          'Текст кэшбэка и код для импорта успешно скопированы. Вы можете вставить его в Telegram, WhatsApp или отправить супруге.'
+        );
+      } else {
+        showNotification('Код кэшбэка', message);
+      }
+    } else {
+      try {
+        await Share.share({
+          message,
+          title,
+        });
+      } catch (e: any) {
+        console.warn('Mobile share error:', e);
+      }
+    }
+  }
+
+  /**
    * Share single bank's cashback for the month
    */
   static async shareBankCashback(bank: Bank, cashback: MonthlyCashback) {
@@ -111,14 +178,7 @@ export class ShareService {
       code,
     ].join('\n');
 
-    try {
-      await Share.share({
-        message,
-        title: `Кэшбэк ${bank.name} (${monthName} ${cashback.year})`,
-      });
-    } catch (e: any) {
-      console.warn('Share error:', e);
-    }
+    await this.shareMessage(`Кэшбэк ${bank.name} (${monthName} ${cashback.year})`, message);
   }
 
   /**
@@ -165,14 +225,6 @@ export class ShareService {
     lines.push(code);
 
     const message = lines.join('\n');
-
-    try {
-      await Share.share({
-        message,
-        title: `Кэшбэк на ${monthName} ${year}`,
-      });
-    } catch (e: any) {
-      console.warn('Share error:', e);
-    }
+    await this.shareMessage(`Кэшбэк на ${monthName} ${year}`, message);
   }
 }
