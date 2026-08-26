@@ -364,7 +364,7 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.cardHeader}>
             <Info size={18} color={colors.accent} style={{ marginRight: 8 }} />
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              О проекте Cashback Hub
+              О проекте «Мои Кэшбеки»
             </Text>
           </View>
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
@@ -374,12 +374,13 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.dedicationBox}>
             <Heart size={20} color="#EC4899" fill="#EC4899" style={{ marginRight: 10 }} />
             <Text style={styles.dedicationText}>
-              Сделано Александром Щеголевым для своей любимой жены Светик ❤️
+              Автор: Александр Щеголев{'\n'}
+              Сделано для своей любимой жены Светик ❤️
             </Text>
           </View>
 
           <Text style={[styles.versionText, { color: colors.textMuted }]}>
-            Версия 1.0.0 (Release Build)
+            Версия 1.1.0 (Release Build) • Автор: Александр Щеголев
           </Text>
         </View>
 

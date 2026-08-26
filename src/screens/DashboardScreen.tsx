@@ -97,7 +97,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
-        title="Cashback Hub"
+        title="Мои Кэшбеки"
         subtitle="Все кэшбэки в одном месте"
         showThemeToggle={true}
         rightAction={{
