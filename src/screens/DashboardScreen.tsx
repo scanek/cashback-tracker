@@ -10,11 +10,21 @@ import {
 } from 'react-native';
 import { Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
+import { ShareService } from '../services/share';
 import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
 import { BankCard } from '../components/BankCard';
 import { AddCashbackModal } from '../components/AddCashbackModal';
-import { Camera, Plus, Sparkles, TrendingUp, Layers } from 'lucide-react-native';
+import { ImportCashbackModal } from '../components/ImportCashbackModal';
+import {
+  Camera,
+  Plus,
+  Sparkles,
+  TrendingUp,
+  Layers,
+  Share2,
+  Download,
+} from 'lucide-react-native';
 
 interface DashboardScreenProps {
   onNavigateToScan: () => void;
@@ -31,8 +41,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [cashbacks, setCashbacks] = useState<MonthlyCashback[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Modal State
+  // Modal States
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [importModalVisible, setImportModalVisible] = useState<boolean>(false);
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
 
   const loadData = useCallback(async () => {
@@ -163,6 +174,29 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </TouchableOpacity>
         </View>
 
+        {/* Sharing & Import Action Bar */}
+        <View style={styles.shareRow}>
+          <TouchableOpacity
+            style={styles.shareMonthBtn}
+            onPress={() =>
+              ShareService.shareMonthCashback(cashbacks, banks, currentMonth, currentYear)
+            }
+            activeOpacity={0.8}
+          >
+            <Share2 size={14} color="#FFDD2D" style={{ marginRight: 6 }} />
+            <Text style={styles.shareMonthText}>Поделиться месяцем</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.importBtn}
+            onPress={() => setImportModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Download size={14} color="#38BDF8" style={{ marginRight: 6 }} />
+            <Text style={styles.importText}>Импортировать кэшбэк</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Bank Cards List */}
         <View style={styles.banksList}>
           {banks.map((bank) => {
@@ -175,6 +209,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 onAdd={() => handleOpenAdd(bank)}
                 onEdit={() => handleOpenAdd(bank)}
                 onDelete={cb ? () => handleDeleteCashback(bank.id) : undefined}
+                onShare={
+                  cb && cb.items && cb.items.length > 0
+                    ? () => ShareService.shareBankCashback(bank, cb)
+                    : undefined
+                }
               />
             );
           })}
@@ -197,6 +236,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         onClose={() => setModalVisible(false)}
         onSave={handleSaveCashback}
       />
+
+      {/* Import Shared Cashback Modal */}
+      <ImportCashbackModal
+        visible={importModalVisible}
+        banks={banks}
+        onClose={() => setImportModalVisible(false)}
+        onImportComplete={loadData}
+      />
     </View>
   );
 };
@@ -209,18 +256,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 14,
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginVertical: 14,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#1E293B',
     borderRadius: 14,
     padding: 12,
+    marginHorizontal: 4,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
@@ -228,27 +275,27 @@ const styles = StyleSheet.create({
   statIconWrap: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 6,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     color: '#F8FAFC',
+    marginBottom: 2,
   },
   statLabel: {
     fontSize: 10,
     color: '#94A3B8',
-    marginTop: 2,
     textAlign: 'center',
   },
   actionsContainer: {
     flexDirection: 'row',
+    marginBottom: 10,
     gap: 10,
-    marginBottom: 18,
   },
   primaryActionBtn: {
     flex: 1.2,
@@ -258,10 +305,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFDD2D',
     paddingVertical: 12,
     borderRadius: 12,
-    shadowColor: '#FFDD2D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
   },
   primaryActionText: {
     fontSize: 13,
@@ -284,7 +327,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#38BDF8',
   },
+  shareRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  shareMonthBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 221, 45, 0.3)',
+  },
+  shareMonthText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFDD2D',
+  },
+  importBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  importText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
   banksList: {
-    paddingBottom: 20,
+    marginBottom: 16,
   },
 });

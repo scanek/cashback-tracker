@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
-import { Edit2, Plus, Trash2, CreditCard, Sparkles, AlertCircle } from 'lucide-react-native';
+import { Edit2, Plus, Trash2, CreditCard, Sparkles, AlertCircle, Share2 } from 'lucide-react-native';
 
 interface BankCardProps {
   bank: Bank;
@@ -9,6 +9,7 @@ interface BankCardProps {
   onEdit: () => void;
   onAdd: () => void;
   onDelete?: () => void;
+  onShare?: () => void;
 }
 
 export const BankCard: React.FC<BankCardProps> = ({
@@ -17,6 +18,7 @@ export const BankCard: React.FC<BankCardProps> = ({
   onEdit,
   onAdd,
   onDelete,
+  onShare,
 }) => {
   const hasItems = cashback && cashback.items && cashback.items.length > 0;
 
@@ -32,8 +34,17 @@ export const BankCard: React.FC<BankCardProps> = ({
         <View style={styles.headerActions}>
           {hasItems ? (
             <>
+              {onShare && (
+                <TouchableOpacity
+                  style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)' }]}
+                  onPress={onShare}
+                  activeOpacity={0.7}
+                >
+                  <Share2 size={14} color={bank.textColor} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)' }]}
+                style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 6 }]}
                 onPress={onEdit}
                 activeOpacity={0.7}
               >
