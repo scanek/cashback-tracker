@@ -9,7 +9,7 @@ const STORAGE_KEYS = {
   INITIALIZED: '@cashback_hub_initialized_v1',
 };
 
-export const EMBEDDED_GEMINI_API_KEY = 'AQ.Ab8RN6KLsZuKmY8EAtHjsWIDDBG0vAQvNtTPaChwQyNFPjbpKg';
+export const EMBEDDED_GEMINI_API_KEY = 'AQ.Ab8RN6IKuwWRuIhU9Lq4B9rhyvDp63yg8hgSANZPwEoL05dF4g';
 
 const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: EMBEDDED_GEMINI_API_KEY,
