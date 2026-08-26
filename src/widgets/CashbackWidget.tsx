@@ -287,7 +287,7 @@ export function CashbackWidget({
                   />
                 </FlexWidget>
 
-                {/* Categories Line */}
+                {/* Categories Line (Wraps up to 2 lines per bank) */}
                 <FlexWidget style={{ flex: 1 }}>
                   <TextWidget
                     text={categoriesSummary}
@@ -295,7 +295,7 @@ export function CashbackWidget({
                       fontSize: 11,
                       color: themeStyles.categoriesColor,
                     }}
-                    maxLines={1}
+                    maxLines={2}
                   />
                 </FlexWidget>
               </FlexWidget>

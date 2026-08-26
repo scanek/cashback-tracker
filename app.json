@@ -37,10 +37,13 @@
               "name": "CashbackWidget",
               "label": "Мои Кэшбеки",
               "minWidth": "300dp",
-              "minHeight": "150dp",
+              "minHeight": "200dp",
               "targetCellWidth": 4,
-              "targetCellHeight": 2,
-              "description": "Виджет топ категорий кэшбэка на текущий месяц",
+              "targetCellHeight": 3,
+              "maxResizeWidth": "500dp",
+              "maxResizeHeight": "650dp",
+              "resizeMode": "horizontal|vertical",
+              "description": "Виджет всех категорий кэшбэка банков на месяц",
               "previewImage": "./assets/icon.png",
               "updatePeriodMillis": 1800000
             }
