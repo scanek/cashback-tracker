@@ -14,6 +14,7 @@ import { AppSettings } from '../types';
 import { StorageService } from '../services/storage';
 import { NotificationService } from '../services/notifications';
 import { GeminiVisionService } from '../services/gemini';
+import { confirmDialog } from '../utils/alert';
 import { Header } from '../components/Header';
 import {
   Key,
@@ -93,20 +94,14 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const handleResetSampleData = () => {
-    Alert.alert(
+    confirmDialog(
       'Сброс данных',
       'Восстановить примеры категорий и банков по умолчанию?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Сбросить',
-          style: 'destructive',
-          onPress: async () => {
-            await StorageService.resetToSampleData();
-            Alert.alert('Готово', 'Базовые данные восстановлены!');
-          },
-        },
-      ]
+      async () => {
+        await StorageService.resetToSampleData();
+        Alert.alert('Готово', 'Базовые данные восстановлены!');
+      },
+      'Сбросить'
     );
   };
 

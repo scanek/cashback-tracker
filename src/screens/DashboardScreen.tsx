@@ -11,6 +11,7 @@ import {
 import { Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
 import { ShareService } from '../services/share';
+import { confirmDialog } from '../utils/alert';
 import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
 import { BankCard } from '../components/BankCard';
@@ -75,20 +76,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   };
 
   const handleDeleteCashback = (bankId: string) => {
-    Alert.alert(
+    confirmDialog(
       'Удалить кэшбэк',
       'Вы уверены, что хотите удалить категории этого банка за выбранный месяц?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            await StorageService.deleteMonthlyCashback(bankId, currentMonth, currentYear);
-            await loadData();
-          },
-        },
-      ]
+      async () => {
+        await StorageService.deleteMonthlyCashback(bankId, currentMonth, currentYear);
+        await loadData();
+      }
     );
   };
 

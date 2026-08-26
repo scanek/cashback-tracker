@@ -130,22 +130,36 @@ export class StorageService {
 
   static async getCashbacksForMonth(month: number, year: number): Promise<MonthlyCashback[]> {
     const all = await this.getAllCashbacks();
-    return all.filter(c => c.month === month && c.year === year);
+    return all.filter(
+      (c) => Number(c.month) === Number(month) && Number(c.year) === Number(year)
+    );
   }
 
   static async saveMonthlyCashback(cashback: MonthlyCashback): Promise<MonthlyCashback[]> {
     const all = await this.getAllCashbacks();
-    // Replace if exists for same bank, month, year
+    const targetMonth = Number(cashback.month);
+    const targetYear = Number(cashback.year);
+
     const index = all.findIndex(
-      c => c.bankId === cashback.bankId && c.month === cashback.month && c.year === cashback.year
+      (c) =>
+        c.bankId === cashback.bankId &&
+        Number(c.month) === targetMonth &&
+        Number(c.year) === targetYear
     );
 
     let updated: MonthlyCashback[];
+    const normalized: MonthlyCashback = {
+      ...cashback,
+      month: targetMonth,
+      year: targetYear,
+      updatedAt: new Date().toISOString(),
+    };
+
     if (index >= 0) {
       updated = [...all];
-      updated[index] = { ...cashback, updatedAt: new Date().toISOString() };
+      updated[index] = normalized;
     } else {
-      updated = [...all, { ...cashback, updatedAt: new Date().toISOString() }];
+      updated = [...all, normalized];
     }
 
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(updated));
@@ -154,8 +168,16 @@ export class StorageService {
 
   static async deleteMonthlyCashback(bankId: string, month: number, year: number): Promise<void> {
     const all = await this.getAllCashbacks();
+    const targetMonth = Number(month);
+    const targetYear = Number(year);
+
     const filtered = all.filter(
-      c => !(c.bankId === bankId && c.month === month && c.year === year)
+      (c) =>
+        !(
+          c.bankId === bankId &&
+          Number(c.month) === targetMonth &&
+          Number(c.year) === targetYear
+        )
     );
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(filtered));
   }
