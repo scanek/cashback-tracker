@@ -13,6 +13,7 @@ import {
 import { AppSettings } from '../types';
 import { StorageService } from '../services/storage';
 import { NotificationService } from '../services/notifications';
+import { GeminiVisionService } from '../services/gemini';
 import { Header } from '../components/Header';
 import {
   Key,
@@ -28,11 +29,13 @@ import {
   Sparkles,
   Heart,
   Info,
+  Zap,
 } from 'lucide-react-native';
 
 export const SettingsScreen: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('');
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [testingKey, setTestingKey] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
@@ -47,8 +50,31 @@ export const SettingsScreen: React.FC = () => {
   }, []);
 
   const handleSaveApiKey = async () => {
-    await StorageService.saveSettings({ geminiApiKey: apiKey.trim() });
-    Alert.alert('Сохранено', 'Gemini API ключ успешно обновлен!');
+    const clean = GeminiVisionService.sanitizeApiKey(apiKey);
+    await StorageService.saveSettings({ geminiApiKey: clean });
+    Alert.alert('Сохранено', 'Gemini API ключ сохранен!');
+  };
+
+  const handleTestApiKey = async () => {
+    const clean = GeminiVisionService.sanitizeApiKey(apiKey);
+    if (!clean) {
+      Alert.alert('Внимание', 'Сначала введите ваш Gemini API ключ');
+      return;
+    }
+
+    setTestingKey(true);
+    const res = await GeminiVisionService.testApiKeyAndGetModel(clean);
+    setTestingKey(false);
+
+    if (res.success) {
+      await StorageService.saveSettings({ geminiApiKey: clean });
+      Alert.alert('✅ Успешно!', res.message);
+    } else {
+      Alert.alert(
+        '❌ Ошибка проверки ключа',
+        `${res.message}\n\nУбедитесь, что вы создали бесплатный API Key именно в Google AI Studio (aistudio.google.com).`
+      );
+    }
   };
 
   const handleToggleNotifications = async (val: boolean) => {
@@ -135,10 +161,23 @@ export const SettingsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.saveKeyBtn} onPress={handleSaveApiKey}>
-            <Check size={16} color="#0F172A" style={{ marginRight: 6 }} />
-            <Text style={styles.saveKeyBtnText}>Сохранить ключ</Text>
-          </TouchableOpacity>
+          <View style={styles.keyActionsRow}>
+            <TouchableOpacity style={styles.saveKeyBtn} onPress={handleSaveApiKey}>
+              <Check size={16} color="#0F172A" style={{ marginRight: 6 }} />
+              <Text style={styles.saveKeyBtnText}>Сохранить</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.testKeyBtn}
+              onPress={handleTestApiKey}
+              disabled={testingKey}
+            >
+              <Zap size={16} color="#38BDF8" style={{ marginRight: 6 }} />
+              <Text style={styles.testKeyBtnText}>
+                {testingKey ? 'Проверка...' : 'Проверить AI'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.apiKeyHint}>
             <Sparkles size={14} color="#38BDF8" style={{ marginRight: 6 }} />
@@ -283,7 +322,12 @@ const styles = StyleSheet.create({
   eyeBtn: {
     padding: 6,
   },
+  keyActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   saveKeyBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -295,6 +339,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  testKeyBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  testKeyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38BDF8',
   },
   apiKeyHint: {
     flexDirection: 'row',

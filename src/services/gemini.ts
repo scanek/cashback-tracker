@@ -39,54 +39,114 @@ const SYSTEM_PROMPT = `
 }
 `;
 
-const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-exp',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro-latest',
-  'gemini-1.5-pro',
-];
-
 export class GeminiVisionService {
+  /**
+   * Clean and normalize API key string
+   */
+  static sanitizeApiKey(key: string): string {
+    return key
+      .replace(/^Bearer\s+/i, '')
+      .replace(/["'\r\n\t\s]/g, '')
+      .trim();
+  }
+
+  /**
+   * Test API key and find working model from user's account
+   */
+  static async testApiKeyAndGetModel(apiKey: string): Promise<{ success: boolean; modelName?: string; message: string }> {
+    const cleanKey = this.sanitizeApiKey(apiKey);
+    if (!cleanKey) {
+      return { success: false, message: 'API ключ не введен' };
+    }
+
+    try {
+      // 1. Query available models for this specific API key
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { success: false, message: `Ошибка ключа (${response.status}): ${errorText}` };
+      }
+
+      const data = await response.json();
+      const models: any[] = data.models || [];
+      
+      // Filter models that support generateContent
+      const visionModels = models.filter((m: any) =>
+        m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
+      );
+
+      if (visionModels.length === 0) {
+        return { success: false, message: 'Для этого ключа не найдено доступных моделей Gemini в Google AI Studio.' };
+      }
+
+      // Pick best flash model
+      const preferred =
+        visionModels.find((m) => m.name.includes('gemini-2.5-flash')) ||
+        visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
+        visionModels.find((m) => m.name.includes('gemini-1.5-flash')) ||
+        visionModels.find((m) => m.name.includes('gemini')) ||
+        visionModels[0];
+
+      const modelId = preferred.name.replace(/^models\//, '');
+      return {
+        success: true,
+        modelName: modelId,
+        message: `Ключ работает отлично! Выбрана модель: ${modelId}`
+      };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Сетевая ошибка при проверке ключа' };
+    }
+  }
+
   static async analyzeScreenshot(
     base64Image: string,
     mimeType: string = 'image/jpeg',
     apiKey?: string,
-    preferredModel: string = 'gemini-2.0-flash'
+    preferredModel?: string
   ): Promise<ScanResult> {
-    if (!apiKey || apiKey.trim().length === 0) {
+    const cleanKey = this.sanitizeApiKey(apiKey || '');
+    if (!cleanKey) {
       return this.mockSmartRecognition();
     }
 
-    const cleanKey = apiKey.trim();
+    // 1. Determine the best available model for this API key
+    let targetModel = preferredModel;
+    try {
+      const check = await this.testApiKeyAndGetModel(cleanKey);
+      if (check.success && check.modelName) {
+        targetModel = check.modelName;
+      }
+    } catch (e) {
+      console.warn('Model discovery warning:', e);
+    }
+
     const modelsToTry = [
-      preferredModel,
-      ...CANDIDATE_MODELS.filter((m) => m !== preferredModel),
-    ];
+      targetModel,
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-pro',
+    ].filter(Boolean) as string[];
 
     let lastError: any = null;
 
-    for (const model of modelsToTry) {
+    for (const model of Array.from(new Set(modelsToTry))) {
       try {
         const result = await this.tryModel(model, base64Image, mimeType, cleanKey);
         if (result) return result;
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${model} failed, trying fallback:`, err.message);
-        // If it's a 404 (model not found), continue loop to next candidate model
+        console.warn(`Model ${model} failed, trying next:`, err.message);
         if (err.message && (err.message.includes('404') || err.message.includes('not found') || err.message.includes('NOT_FOUND'))) {
           continue;
         }
-        // If it's an authentication error or other fatal error, rethrow
-        if (err.message && (err.message.includes('API_KEY_INVALID') || err.message.includes('400') || err.message.includes('403'))) {
-          throw err;
-        }
+        throw err;
       }
     }
 
-    throw lastError || new Error('Не удалось получить ответ от моделей Gemini. Проверьте API ключ.');
+    throw lastError || new Error('Не удалось распознать скриншот. Проверьте API ключ в Настройках.');
   }
 
   private static async tryModel(
@@ -155,7 +215,6 @@ export class GeminiVisionService {
     };
   }
 
-  // Fallback demo parser when testing before setting an API key
   static mockSmartRecognition(): Promise<ScanResult> {
     return new Promise((resolve) => {
       setTimeout(() => {
