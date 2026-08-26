@@ -60,7 +60,6 @@ export class GeminiVisionService {
     }
 
     try {
-      // 1. Query available models for this specific API key
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
       if (!response.ok) {
         const errorText = await response.text();
@@ -70,16 +69,15 @@ export class GeminiVisionService {
       const data = await response.json();
       const models: any[] = data.models || [];
       
-      // Filter models that support generateContent
       const visionModels = models.filter((m: any) =>
         m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
       );
 
       if (visionModels.length === 0) {
-        return { success: false, message: 'Для этого ключа не найдено доступных моделей Gemini в Google AI Studio.' };
+        return { success: false, message: 'Для этого ключа не найдено доступных моделей в Google AI Studio.' };
       }
 
-      // Pick best flash model
+      // Pick preferred model
       const preferred =
         visionModels.find((m) => m.name.includes('gemini-2.5-flash')) ||
         visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
@@ -110,11 +108,11 @@ export class GeminiVisionService {
     }
 
     // 1. Determine the best available model for this API key
-    let targetModel = preferredModel;
+    let targetModel = preferredModel ? preferredModel.replace(/^models\//, '') : undefined;
     try {
       const check = await this.testApiKeyAndGetModel(cleanKey);
       if (check.success && check.modelName) {
-        targetModel = check.modelName;
+        targetModel = check.modelName.replace(/^models\//, '');
       }
     } catch (e) {
       console.warn('Model discovery warning:', e);
@@ -124,15 +122,17 @@ export class GeminiVisionService {
       targetModel,
       'gemini-2.5-flash',
       'gemini-2.0-flash',
+      'gemini-2.0-flash-exp',
       'gemini-1.5-flash-latest',
       'gemini-1.5-flash',
       'gemini-1.5-pro-latest',
       'gemini-1.5-pro',
     ].filter(Boolean) as string[];
 
+    const uniqueModels = Array.from(new Set(modelsToTry.map(m => m.replace(/^models\//, ''))));
     let lastError: any = null;
 
-    for (const model of Array.from(new Set(modelsToTry))) {
+    for (const model of uniqueModels) {
       try {
         const result = await this.tryModel(model, base64Image, mimeType, cleanKey);
         if (result) return result;
@@ -146,7 +146,7 @@ export class GeminiVisionService {
       }
     }
 
-    throw lastError || new Error('Не удалось распознать скриншот. Проверьте API ключ в Настройках.');
+    throw lastError || new Error('Не удалось распознать скриншот. Проверьте четкость скриншота.');
   }
 
   private static async tryModel(
@@ -155,7 +155,13 @@ export class GeminiVisionService {
     mimeType: string,
     apiKey: string
   ): Promise<ScanResult> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const cleanModel = model.replace(/^models\//, '');
+    const cleanBase64 = base64Image
+      .replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/i, '')
+      .replace(/[\r\n\s]/g, '');
+    const cleanMime = mimeType.replace(/;.*$/, '').trim() || 'image/jpeg';
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -171,8 +177,8 @@ export class GeminiVisionService {
               },
               {
                 inlineData: {
-                  mimeType: mimeType,
-                  data: base64Image,
+                  mimeType: cleanMime,
+                  data: cleanBase64,
                 },
               },
             ],

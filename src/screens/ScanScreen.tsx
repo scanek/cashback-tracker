@@ -41,15 +41,17 @@ export const ScanScreen: React.FC = () => {
     loadBanks();
   }, []);
 
-  const processImageBase64 = async (base64: string, uri: string) => {
+  const processImageBase64 = async (base64: string, uri: string, mimeType?: string) => {
     try {
       setLoading(true);
       setStatusMessage('Распознаем категории кэшбэка через Gemini Vision...');
 
       const settings = await StorageService.getSettings();
+      const detectedMime = mimeType || (uri.endsWith('.png') ? 'image/png' : 'image/jpeg');
+
       const result = await GeminiVisionService.analyzeScreenshot(
         base64,
-        'image/jpeg',
+        detectedMime,
         settings.geminiApiKey,
         settings.geminiModel
       );
@@ -61,7 +63,7 @@ export const ScanScreen: React.FC = () => {
       console.error('Scan error', error);
       Alert.alert(
         'Ошибка распознавания',
-        error.message || 'Не удалось распознать категории. Проверьте API ключ или четкость скриншота.'
+        error.message || 'Не удалось распознать категории. Проверьте четкость скриншота.'
       );
     } finally {
       setLoading(false);
@@ -84,8 +86,9 @@ export const ScanScreen: React.FC = () => {
         base64: true,
       });
 
-      if (!pickerResult.canceled && pickerResult.assets[0]?.base64) {
-        await processImageBase64(pickerResult.assets[0].base64, pickerResult.assets[0].uri);
+      const asset = pickerResult.assets?.[0];
+      if (!pickerResult.canceled && asset && typeof asset.base64 === 'string') {
+        await processImageBase64(asset.base64, asset.uri, asset.mimeType ?? undefined);
       }
     } catch (e: any) {
       Alert.alert('Ошибка', e.message || 'Не удалось загрузить фото');
@@ -106,8 +109,9 @@ export const ScanScreen: React.FC = () => {
         base64: true,
       });
 
-      if (!cameraResult.canceled && cameraResult.assets[0]?.base64) {
-        await processImageBase64(cameraResult.assets[0].base64, cameraResult.assets[0].uri);
+      const asset = cameraResult.assets?.[0];
+      if (!cameraResult.canceled && asset && typeof asset.base64 === 'string') {
+        await processImageBase64(asset.base64, asset.uri, asset.mimeType ?? undefined);
       }
     } catch (e: any) {
       Alert.alert('Ошибка', e.message || 'Не удалось сделать фото');
