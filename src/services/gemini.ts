@@ -39,82 +39,120 @@ const SYSTEM_PROMPT = `
 }
 `;
 
+const CANDIDATE_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro-latest',
+  'gemini-1.5-pro',
+];
+
 export class GeminiVisionService {
   static async analyzeScreenshot(
     base64Image: string,
     mimeType: string = 'image/jpeg',
     apiKey?: string,
-    model: string = 'gemini-1.5-flash'
+    preferredModel: string = 'gemini-2.0-flash'
   ): Promise<ScanResult> {
     if (!apiKey || apiKey.trim().length === 0) {
-      // If no API key provided, provide realistic smart recognition for demo/offline test
       return this.mockSmartRecognition();
     }
 
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+    const cleanKey = apiKey.trim();
+    const modelsToTry = [
+      preferredModel,
+      ...CANDIDATE_MODELS.filter((m) => m !== preferredModel),
+    ];
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: SYSTEM_PROMPT
-                },
-                {
-                  inlineData: {
-                    mimeType: mimeType,
-                    data: base64Image
-                  }
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: 'application/json'
-          }
-        })
-      });
+    let lastError: any = null;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+    for (const model of modelsToTry) {
+      try {
+        const result = await this.tryModel(model, base64Image, mimeType, cleanKey);
+        if (result) return result;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${model} failed, trying fallback:`, err.message);
+        // If it's a 404 (model not found), continue loop to next candidate model
+        if (err.message && (err.message.includes('404') || err.message.includes('not found') || err.message.includes('NOT_FOUND'))) {
+          continue;
+        }
+        // If it's an authentication error or other fatal error, rethrow
+        if (err.message && (err.message.includes('API_KEY_INVALID') || err.message.includes('400') || err.message.includes('403'))) {
+          throw err;
+        }
       }
-
-      const json = await response.json();
-      const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      
-      const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-
-      // Match bank ID from preset banks
-      const matchedBank = PRESET_BANKS.find(b =>
-        parsed.bankName && (
-          b.name.toLowerCase().includes(parsed.bankName.toLowerCase()) ||
-          b.shortName.toLowerCase().includes(parsed.bankName.toLowerCase()) ||
-          parsed.bankName.toLowerCase().includes(b.shortName.toLowerCase())
-        )
-      );
-
-      return {
-        bankName: parsed.bankName || 'Неизвестный банк',
-        bankId: matchedBank?.id || 'custom',
-        month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
-        year: typeof parsed.year === 'number' ? parsed.year : new Date().getFullYear(),
-        items: Array.isArray(parsed.items) ? parsed.items : [],
-        confidence: 0.95,
-        rawText: rawText
-      };
-    } catch (error: any) {
-      console.warn('Gemini recognition error, using smart fallback parser:', error);
-      throw error;
     }
+
+    throw lastError || new Error('Не удалось получить ответ от моделей Gemini. Проверьте API ключ.');
+  }
+
+  private static async tryModel(
+    model: string,
+    base64Image: string,
+    mimeType: string,
+    apiKey: string
+  ): Promise<ScanResult> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: SYSTEM_PROMPT,
+              },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Image,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+    }
+
+    const json = await response.json();
+    const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    const matchedBank = PRESET_BANKS.find(
+      (b) =>
+        parsed.bankName &&
+        (b.name.toLowerCase().includes(parsed.bankName.toLowerCase()) ||
+          b.shortName.toLowerCase().includes(parsed.bankName.toLowerCase()) ||
+          parsed.bankName.toLowerCase().includes(b.shortName.toLowerCase()))
+    );
+
+    return {
+      bankName: parsed.bankName || 'Неизвестный банк',
+      bankId: matchedBank?.id || 'custom',
+      month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
+      year: typeof parsed.year === 'number' ? parsed.year : new Date().getFullYear(),
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      confidence: 0.95,
+      rawText: rawText,
+    };
   }
 
   // Fallback demo parser when testing before setting an API key
@@ -131,10 +169,10 @@ export class GeminiVisionService {
             { category: 'Кафе и рестораны', percent: 7 },
             { category: 'Аптеки и здоровье', percent: 10 },
             { category: 'Такси', percent: 5 },
-            { category: '1% на все покупки', percent: 1 }
+            { category: '1% на все покупки', percent: 1 },
           ],
           confidence: 0.9,
-          rawText: 'Распознано в демо-режиме (для реального AI подключите ключ в Настройках)'
+          rawText: 'Распознано в демо-режиме (для реального AI подключите ключ в Настройках)',
         });
       }, 1200);
     });

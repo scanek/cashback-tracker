@@ -11,7 +11,7 @@ const STORAGE_KEYS = {
 
 const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: '',
-  geminiModel: 'gemini-1.5-flash',
+  geminiModel: 'gemini-2.5-flash',
   enableMonthlyReminders: true,
   activeTheme: 'dark',
 };
