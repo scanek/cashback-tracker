@@ -13,6 +13,7 @@ import { CashbackMatcher } from '../services/matcher';
 import { Header } from '../components/Header';
 import { POPULAR_SEARCH_QUERIES } from '../constants/categories';
 import { MONTH_NAMES_RU } from '../constants/banks';
+import { useTheme } from '../context/ThemeContext';
 import {
   Search,
   X,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react-native';
 
 export const AdvisorScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [query, setQuery] = useState<string>('');
   const [banks, setBanks] = useState<Bank[]>([]);
   const [cashbacks, setCashbacks] = useState<MonthlyCashback[]>([]);
@@ -66,7 +68,7 @@ export const AdvisorScreen: React.FC = () => {
     .slice(0, 8);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Чем платить?"
         subtitle={`Выгодные карты на ${MONTH_NAMES_RU[currentMonth]} ${currentYear}`}
@@ -74,19 +76,24 @@ export const AdvisorScreen: React.FC = () => {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Search Bar */}
-        <View style={styles.searchBar}>
-          <Search size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+        <View
+          style={[
+            styles.searchBar,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <Search size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Категория или магазин (АЗС, Кафе, Пятёрочка...)"
-            placeholderTextColor="#64748B"
+            placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
             autoCapitalize="none"
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')} style={styles.clearBtn}>
-              <X size={16} color="#94A3B8" />
+              <X size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -102,11 +109,24 @@ export const AdvisorScreen: React.FC = () => {
             return (
               <TouchableOpacity
                 key={item}
-                style={[styles.chip, isSelected && styles.chipSelected]}
+                style={[
+                  styles.chip,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  isSelected && {
+                    backgroundColor: colors.accentBlue,
+                    borderColor: colors.accentBlue,
+                  },
+                ]}
                 onPress={() => setQuery(item)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: colors.textSecondary },
+                    isSelected && styles.chipTextSelected,
+                  ]}
+                >
                   {item}
                 </Text>
               </TouchableOpacity>
@@ -117,16 +137,21 @@ export const AdvisorScreen: React.FC = () => {
         {/* Search Results */}
         {query.trim().length > 0 ? (
           <View style={styles.resultsContainer}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
               Результаты для «{query}» ({results.length})
             </Text>
 
             {results.length === 0 ? (
-              <View style={styles.noResultsCard}>
-                <Text style={styles.noResultsText}>
+              <View
+                style={[
+                  styles.noResultsCard,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                ]}
+              >
+                <Text style={[styles.noResultsText, { color: colors.textPrimary }]}>
                   Ни в одном банке не найдено повышенного кэшбэка на эту категорию.
                 </Text>
-                <Text style={styles.noResultsSub}>
+                <Text style={[styles.noResultsSub, { color: colors.textSecondary }]}>
                   Рекомендуем использовать любую карту с базовым кэшбэком 1% на всё.
                 </Text>
               </View>
@@ -136,7 +161,11 @@ export const AdvisorScreen: React.FC = () => {
                 return (
                   <View
                     key={`${res.bank.id}-${res.item.id}`}
-                    style={[styles.matchCard, isBest && styles.bestMatchCard]}
+                    style={[
+                      styles.matchCard,
+                      { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                      isBest && styles.bestMatchCard,
+                    ]}
                   >
                     {isBest && (
                       <View style={styles.bestBadge}>
@@ -170,11 +199,17 @@ export const AdvisorScreen: React.FC = () => {
                               { backgroundColor: res.bank.primaryColor },
                             ]}
                           />
-                          <Text style={styles.bankTitle}>{res.bank.name}</Text>
+                          <Text style={[styles.bankTitle, { color: colors.textPrimary }]}>
+                            {res.bank.name}
+                          </Text>
                         </View>
-                        <Text style={styles.matchReason}>{res.matchReason}</Text>
+                        <Text style={[styles.matchReason, { color: colors.textSecondary }]}>
+                          {res.matchReason}
+                        </Text>
                         {res.item.note && (
-                          <Text style={styles.matchNote}>Условие: {res.item.note}</Text>
+                          <Text style={[styles.matchNote, { color: colors.textMuted }]}>
+                            Условие: {res.item.note}
+                          </Text>
                         )}
                       </View>
 
@@ -203,8 +238,8 @@ export const AdvisorScreen: React.FC = () => {
           /* Empty Search - Showcase Top Offers for the Month */
           <View style={styles.topOffersSection}>
             <View style={styles.sectionHeader}>
-              <TrendingUp size={18} color="#38BDF8" style={{ marginRight: 6 }} />
-              <Text style={styles.sectionTitle}>
+              <TrendingUp size={18} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                 Топ повышенных кэшбэков в этом месяце
               </Text>
             </View>
@@ -213,7 +248,10 @@ export const AdvisorScreen: React.FC = () => {
               {allTopOffers.map((offer, idx) => (
                 <TouchableOpacity
                   key={`${offer.bank.id}-${offer.item.id}-${idx}`}
-                  style={styles.topOfferCard}
+                  style={[
+                    styles.topOfferCard,
+                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  ]}
                   onPress={() => setQuery(offer.item.category)}
                   activeOpacity={0.7}
                 >
@@ -228,13 +266,18 @@ export const AdvisorScreen: React.FC = () => {
                         {offer.bank.shortName}
                       </Text>
                     </View>
-                    <Text style={styles.topOfferCategory} numberOfLines={1}>
+                    <Text
+                      style={[styles.topOfferCategory, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
                       {offer.item.category}
                     </Text>
                   </View>
 
                   <View style={styles.topOfferRight}>
-                    <Text style={styles.topOfferPercent}>{offer.item.percent}%</Text>
+                    <Text style={[styles.topOfferPercent, { color: colors.accentBlue }]}>
+                      {offer.item.percent}%
+                    </Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -251,7 +294,6 @@ export const AdvisorScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   content: {
     flex: 1,
@@ -261,17 +303,14 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#334155',
     marginBottom: 12,
   },
   searchInput: {
     flex: 1,
-    color: '#F8FAFC',
     fontSize: 14,
     padding: 0,
   },
@@ -283,81 +322,68 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   chip: {
-    backgroundColor: '#1E293B',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
-  },
-  chipSelected: {
-    backgroundColor: '#38BDF8',
-    borderColor: '#38BDF8',
   },
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#94A3B8',
   },
   chipTextSelected: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   resultsContainer: {
     marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     marginBottom: 12,
   },
   noResultsCard: {
-    backgroundColor: '#1E293B',
     padding: 16,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   noResultsText: {
     fontSize: 14,
-    color: '#F8FAFC',
+    fontWeight: '600',
     marginBottom: 6,
   },
   noResultsSub: {
     fontSize: 12,
-    color: '#94A3B8',
+    lineHeight: 16,
   },
   matchCard: {
-    backgroundColor: '#1E293B',
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    marginBottom: 12,
+    overflow: 'hidden',
   },
   bestMatchCard: {
     borderColor: '#FFDD2D',
-    backgroundColor: '#1E293B',
+    borderWidth: 1.5,
   },
   bestBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFDD2D',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   bestBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
     color: '#0F172A',
+    letterSpacing: 0.5,
   },
   cardMain: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 14,
   },
   rankCircle: {
     width: 32,
@@ -368,24 +394,20 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   rankCircleGold: {
-    backgroundColor: 'rgba(255, 221, 45, 0.2)',
-    borderWidth: 1,
-    borderColor: '#FFDD2D',
+    backgroundColor: '#FFDD2D',
   },
   rankCircleNormal: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
   },
   rankNumber: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   rankNumberGold: {
-    color: '#FFDD2D',
+    color: '#0F172A',
   },
   rankNumberNormal: {
-    color: '#94A3B8',
+    color: '#38BDF8',
   },
   cardDetails: {
     flex: 1,
@@ -396,43 +418,37 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   bankIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 6,
   },
   bankTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   matchReason: {
-    fontSize: 12,
-    color: '#38BDF8',
-    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '600',
   },
   matchNote: {
     fontSize: 11,
-    color: '#94A3B8',
     marginTop: 2,
   },
   percentBox: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    minWidth: 54,
-    alignItems: 'center',
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginLeft: 10,
   },
   percentBoxGold: {
     backgroundColor: '#FFDD2D',
   },
   percentBoxNormal: {
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#334155',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
   },
   percentValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
   },
   percentValueGold: {
@@ -456,11 +472,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
-    padding: 12,
     borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   topOfferLeft: {
     flexDirection: 'row',
@@ -471,7 +485,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    marginRight: 10,
+    marginRight: 8,
   },
   bankMiniTagText: {
     fontSize: 11,
@@ -480,18 +494,13 @@ const styles = StyleSheet.create({
   topOfferCategory: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#F8FAFC',
     flex: 1,
   },
   topOfferRight: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    marginLeft: 8,
   },
   topOfferPercent: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#38BDF8',
   },
 });

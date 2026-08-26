@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { AdvisorScreen } from './src/screens/AdvisorScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
@@ -25,8 +26,9 @@ import {
 
 type TabType = 'dashboard' | 'advisor' | 'scan' | 'cards' | 'settings';
 
-export default function App() {
+function MainAppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const { colors, theme } = useTheme();
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -67,105 +69,139 @@ export default function App() {
   };
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-        <View style={styles.container}>
-          {/* Main Active Screen */}
-          <View style={styles.screenContainer}>{renderCurrentScreen()}</View>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
+      <StatusBar
+        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Main Active Screen */}
+        <View style={styles.screenContainer}>{renderCurrentScreen()}</View>
 
-          {/* Modern Bottom Navigation Bar */}
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => setActiveTab('dashboard')}
-              activeOpacity={0.7}
+        {/* Modern Bottom Navigation Bar */}
+        <View
+          style={[
+            styles.tabBar,
+            {
+              backgroundColor: colors.tabBarBackground,
+              borderTopColor: colors.tabBarBorder,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('dashboard')}
+            activeOpacity={0.7}
+          >
+            <CreditCard
+              size={22}
+              color={activeTab === 'dashboard' ? colors.accent : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: activeTab === 'dashboard' ? colors.accent : colors.textMuted },
+                activeTab === 'dashboard' && styles.tabLabelActive,
+              ]}
             >
-              <CreditCard
-                size={22}
-                color={activeTab === 'dashboard' ? '#FFDD2D' : '#64748B'}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === 'dashboard' && styles.tabLabelActiveYellow,
-                ]}
-              >
-                Кэшбэк
-              </Text>
-            </TouchableOpacity>
+              Кэшбэк
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => setActiveTab('advisor')}
-              activeOpacity={0.7}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('advisor')}
+            activeOpacity={0.7}
+          >
+            <Sparkles
+              size={22}
+              color={activeTab === 'advisor' ? colors.accentBlue : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: activeTab === 'advisor' ? colors.accentBlue : colors.textMuted },
+                activeTab === 'advisor' && styles.tabLabelActive,
+              ]}
             >
-              <Sparkles
-                size={22}
-                color={activeTab === 'advisor' ? '#38BDF8' : '#64748B'}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === 'advisor' && styles.tabLabelActiveCyan,
-                ]}
-              >
-                Чем платить
-              </Text>
-            </TouchableOpacity>
+              Чем платить
+            </Text>
+          </TouchableOpacity>
 
-            {/* Center Scan Tab Button */}
-            <TouchableOpacity
-              style={styles.centerScanTab}
-              onPress={() => setActiveTab('scan')}
-              activeOpacity={0.85}
+          {/* Center Scan Tab Button */}
+          <TouchableOpacity
+            style={styles.centerScanTab}
+            onPress={() => setActiveTab('scan')}
+            activeOpacity={0.85}
+          >
+            <View
+              style={[
+                styles.scanButtonCircle,
+                {
+                  backgroundColor: colors.accent,
+                  shadowColor: colors.accent,
+                },
+              ]}
             >
-              <View style={styles.scanButtonCircle}>
-                <Camera size={22} color="#0F172A" />
-              </View>
-              <Text style={styles.scanTabLabel}>Сканер</Text>
-            </TouchableOpacity>
+              <Camera size={22} color="#0F172A" />
+            </View>
+            <Text style={[styles.scanTabLabel, { color: colors.accent }]}>Сканер</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => setActiveTab('cards')}
-              activeOpacity={0.7}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('cards')}
+            activeOpacity={0.7}
+          >
+            <Wallet
+              size={22}
+              color={activeTab === 'cards' ? colors.accentBlue : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: activeTab === 'cards' ? colors.accentBlue : colors.textMuted },
+                activeTab === 'cards' && styles.tabLabelActive,
+              ]}
             >
-              <Wallet
-                size={22}
-                color={activeTab === 'cards' ? '#38BDF8' : '#64748B'}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === 'cards' && styles.tabLabelActiveCyan,
-                ]}
-              >
-                Банки
-              </Text>
-            </TouchableOpacity>
+              Банки
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => setActiveTab('settings')}
-              activeOpacity={0.7}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('settings')}
+            activeOpacity={0.7}
+          >
+            <SettingsIcon
+              size={22}
+              color={activeTab === 'settings' ? colors.accentBlue : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: activeTab === 'settings' ? colors.accentBlue : colors.textMuted },
+                activeTab === 'settings' && styles.tabLabelActive,
+              ]}
             >
-              <SettingsIcon
-                size={22}
-                color={activeTab === 'settings' ? '#38BDF8' : '#64748B'}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === 'settings' && styles.tabLabelActiveCyan,
-                ]}
-              >
-                Настройки
-              </Text>
-            </TouchableOpacity>
-          </View>
+              Настройки
+            </Text>
+          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <MainAppContent />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -173,11 +209,9 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   screenContainer: {
     flex: 1,
@@ -186,10 +220,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#090D16',
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
     paddingBottom: Platform.OS === 'ios' ? 14 : 8,
   },
   tabItem: {
@@ -199,16 +231,10 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    color: '#64748B',
     marginTop: 4,
     fontWeight: '600',
   },
-  tabLabelActiveYellow: {
-    color: '#FFDD2D',
-    fontWeight: '700',
-  },
-  tabLabelActiveCyan: {
-    color: '#38BDF8',
+  tabLabelActive: {
     fontWeight: '700',
   },
   centerScanTab: {
@@ -221,10 +247,8 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#FFDD2D',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FFDD2D',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
@@ -232,7 +256,6 @@ const styles = StyleSheet.create({
   },
   scanTabLabel: {
     fontSize: 11,
-    color: '#FFDD2D',
     marginTop: 2,
     fontWeight: '700',
   },

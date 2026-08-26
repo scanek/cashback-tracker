@@ -1,31 +1,77 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Sparkles } from 'lucide-react-native';
+import { Sparkles, Sun, Moon } from 'lucide-react-native';
+import { useTheme } from '../context/ThemeContext';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  showThemeToggle?: boolean;
   rightAction?: {
     icon: React.ReactNode;
     onPress: () => void;
   };
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, rightAction }) => {
+export const Header: React.FC<HeaderProps> = ({
+  title,
+  subtitle,
+  showThemeToggle = false,
+  rightAction,
+}) => {
+  const { colors, theme, toggleTheme } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          borderBottomColor: colors.cardBorder,
+        },
+      ]}
+    >
       <View style={styles.textContainer}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>{title}</Text>
-          <Sparkles size={18} color="#FFDD2D" style={styles.sparkle} />
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+          <Sparkles size={18} color={colors.accent} style={styles.sparkle} />
         </View>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        {subtitle && (
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
+        )}
       </View>
-      {rightAction && (
-        <TouchableOpacity style={styles.actionButton} onPress={rightAction.onPress} activeOpacity={0.7}>
-          {rightAction.icon}
-        </TouchableOpacity>
-      )}
+
+      <View style={styles.actionsGroup}>
+        {showThemeToggle && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            {theme === 'dark' ? (
+              <Sun size={18} color="#FFDD2D" />
+            ) : (
+              <Moon size={18} color="#0284C7" />
+            )}
+          </TouchableOpacity>
+        )}
+
+        {rightAction && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={rightAction.onPress}
+            activeOpacity={0.7}
+          >
+            {rightAction.icon}
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -38,9 +84,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
   },
   textContainer: {
     flex: 1,
@@ -52,7 +96,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#F8FAFC',
     letterSpacing: -0.5,
   },
   sparkle: {
@@ -60,15 +103,19 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: '#94A3B8',
     marginTop: 2,
   },
+  actionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1E293B',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
 });

@@ -7,7 +7,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Bank, MonthlyCashback, ScanResult } from '../types';
@@ -15,17 +14,17 @@ import { StorageService } from '../services/storage';
 import { GeminiVisionService } from '../services/gemini';
 import { Header } from '../components/Header';
 import { ScanReviewModal } from '../components/ScanReviewModal';
+import { useTheme } from '../context/ThemeContext';
 import {
   Camera,
   Image as ImageIcon,
   Sparkles,
   CheckCircle2,
-  HelpCircle,
-  Play,
   Zap,
 } from 'lucide-react-native';
 
 export const ScanScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [loading, setLoading] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -136,36 +135,43 @@ export const ScanScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title="AI Сканер" subtitle="Распознавание скриншотов банков" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Instruction Card */}
-        <View style={styles.infoCard}>
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
           <View style={styles.infoTitleRow}>
-            <Sparkles size={18} color="#FFDD2D" style={{ marginRight: 8 }} />
-            <Text style={styles.infoTitle}>Как это работает?</Text>
+            <Sparkles size={18} color={colors.accent} style={{ marginRight: 8 }} />
+            <Text style={[styles.infoTitle, { color: colors.textPrimary }]}>Как это работает?</Text>
           </View>
-          <Text style={styles.infoDescription}>
+          <Text style={[styles.infoDescription, { color: colors.textSecondary }]}>
             Сделайте скриншот экрана выбора кэшбэка в приложении любого банка (Т-Банк, Сбер, Альфа, ВТБ, Яндекс и др.).
             Искусственный интеллект автоматически извлечет список категорий и проценты.
           </Text>
 
           <View style={styles.supportedBanksRow}>
-            <Text style={styles.supportedBanksLabel}>Поддерживает любые банки РФ</Text>
+            <Text style={[styles.supportedBanksLabel, { color: colors.accentBlue }]}>
+              Поддерживает любые банки РФ
+            </Text>
           </View>
         </View>
 
         {/* Loading Indicator or Action Buttons */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FFDD2D" />
-            <Text style={styles.loadingText}>{statusMessage}</Text>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={[styles.loadingText, { color: colors.textPrimary }]}>{statusMessage}</Text>
           </View>
         ) : (
           <View style={styles.actionButtonsWrap}>
             <TouchableOpacity
-              style={styles.galleryButton}
+              style={[styles.galleryButton, { backgroundColor: colors.accent }]}
               onPress={pickImageFromGallery}
               activeOpacity={0.8}
             >
@@ -179,43 +185,60 @@ export const ScanScreen: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.cameraButton}
+              style={[
+                styles.cameraButton,
+                { backgroundColor: colors.card, borderColor: colors.accentBlue },
+              ]}
               onPress={takePhotoWithCamera}
               activeOpacity={0.8}
             >
-              <Camera size={20} color="#38BDF8" style={{ marginRight: 10 }} />
-              <Text style={styles.cameraButtonText}>Сделать фото экрана / карты</Text>
+              <Camera size={20} color={colors.accentBlue} style={{ marginRight: 10 }} />
+              <Text style={[styles.cameraButtonText, { color: colors.accentBlue }]}>
+                Сделать фото экрана / карты
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.demoButton}
+              style={[
+                styles.demoButton,
+                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+              ]}
               onPress={testDemoScan}
               activeOpacity={0.8}
             >
               <Zap size={16} color="#F59E0B" style={{ marginRight: 8 }} />
-              <Text style={styles.demoButtonText}>Попробовать демо-распознавание</Text>
+              <Text style={[styles.demoButtonText, { color: colors.textSecondary }]}>
+                Попробовать демо-распознавание
+              </Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Tips Section */}
-        <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>💡 Советы для лучшего распознавания:</Text>
+        <View
+          style={[
+            styles.tipsCard,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <Text style={[styles.tipsTitle, { color: colors.textPrimary }]}>
+            💡 Советы для лучшего распознавания:
+          </Text>
           <View style={styles.tipItem}>
-            <CheckCircle2 size={14} color="#10B981" style={{ marginRight: 6 }} />
-            <Text style={styles.tipText}>
+            <CheckCircle2 size={14} color={colors.accentGreen} style={{ marginRight: 6 }} />
+            <Text style={[styles.tipText, { color: colors.textSecondary }]}>
               Убедитесь, что на скриншоте видны цифры процентов (например, 5%, 1%).
             </Text>
           </View>
           <View style={styles.tipItem}>
-            <CheckCircle2 size={14} color="#10B981" style={{ marginRight: 6 }} />
-            <Text style={styles.tipText}>
+            <CheckCircle2 size={14} color={colors.accentGreen} style={{ marginRight: 6 }} />
+            <Text style={[styles.tipText, { color: colors.textSecondary }]}>
               Если банк не определился автоматически, вы сможете выбрать его в окне подтверждения.
             </Text>
           </View>
           <View style={styles.tipItem}>
-            <CheckCircle2 size={14} color="#10B981" style={{ marginRight: 6 }} />
-            <Text style={styles.tipText}>
+            <CheckCircle2 size={14} color={colors.accentGreen} style={{ marginRight: 6 }} />
+            <Text style={[styles.tipText, { color: colors.textSecondary }]}>
               Вы всегда сможете подправить распознанные категории вручную перед сохранением.
             </Text>
           </View>
@@ -240,7 +263,6 @@ export const ScanScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   content: {
     flex: 1,
@@ -248,12 +270,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   infoCard: {
-    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   infoTitleRow: {
     flexDirection: 'row',
@@ -263,40 +283,45 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   infoDescription: {
     fontSize: 13,
-    color: '#94A3B8',
     lineHeight: 18,
+    marginBottom: 12,
   },
   supportedBanksRow: {
-    marginTop: 12,
-    backgroundColor: '#0F172A',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   supportedBanksLabel: {
-    fontSize: 11,
-    color: '#38BDF8',
+    fontSize: 12,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    borderRadius: 16,
+    marginVertical: 10,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
   },
   actionButtonsWrap: {
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   galleryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFDD2D',
     padding: 16,
     borderRadius: 16,
-    shadowColor: '#FFDD2D',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
   buttonIconWrap: {
     width: 44,
@@ -317,67 +342,41 @@ const styles = StyleSheet.create({
   },
   galleryButtonSubtitle: {
     fontSize: 12,
-    color: '#334155',
+    color: 'rgba(15, 23, 42, 0.75)',
     marginTop: 2,
   },
   cameraButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
-    padding: 14,
+    paddingVertical: 14,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#38BDF8',
+    borderWidth: 1.5,
   },
   cameraButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#38BDF8',
   },
   demoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    padding: 12,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F59E0B',
   },
   demoButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#F59E0B',
-  },
-  loadingContainer: {
-    backgroundColor: '#1E293B',
-    padding: 30,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#F8FAFC',
-    fontWeight: '600',
-    marginTop: 14,
-    textAlign: 'center',
   },
   tipsCard: {
-    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   tipsTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#F8FAFC',
     marginBottom: 10,
   },
   tipItem: {
@@ -387,8 +386,7 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 12,
-    color: '#94A3B8',
-    flex: 1,
     lineHeight: 16,
+    flex: 1,
   },
 });

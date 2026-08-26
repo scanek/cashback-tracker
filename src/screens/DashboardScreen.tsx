@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
@@ -17,6 +16,7 @@ import { MonthSelector } from '../components/MonthSelector';
 import { BankCard } from '../components/BankCard';
 import { AddCashbackModal } from '../components/AddCashbackModal';
 import { ImportCashbackModal } from '../components/ImportCashbackModal';
+import { useTheme } from '../context/ThemeContext';
 import {
   Camera,
   Plus,
@@ -36,6 +36,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onNavigateToScan,
   onNavigateToAdvisor,
 }) => {
+  const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -94,12 +95,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, 0);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Cashback Hub"
         subtitle="Все кэшбэки в одном месте"
+        showThemeToggle={true}
         rightAction={{
-          icon: <Sparkles size={18} color="#FFDD2D" />,
+          icon: <Sparkles size={18} color={colors.accent} />,
           onPress: onNavigateToAdvisor,
         }}
       />
@@ -117,40 +119,57 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         style={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#38BDF8" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentBlue} />
         }
       >
         {/* Quick Stats Banner */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={styles.statIconWrap}>
-              <Layers size={16} color="#38BDF8" />
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
+            <View style={[styles.statIconWrap, { backgroundColor: colors.badgeBackground }]}>
+              <Layers size={16} color={colors.accentBlue} />
             </View>
-            <Text style={styles.statValue}>{cashbacks.length} / {banks.length}</Text>
-            <Text style={styles.statLabel}>Банков заполнено</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              {cashbacks.length} / {banks.length}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Банков заполнено</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
+            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
               <TrendingUp size={16} color="#EF4444" />
             </View>
-            <Text style={[styles.statValue, { color: '#F87171' }]}>до {maxPercent}%</Text>
-            <Text style={styles.statLabel}>Макс. кэшбэк</Text>
+            <Text style={[styles.statValue, { color: '#EF4444' }]}>до {maxPercent}%</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Макс. кэшбэк</Text>
           </View>
 
-          <View style={styles.statCard}>
-            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
+            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
               <Sparkles size={16} color="#10B981" />
             </View>
-            <Text style={[styles.statValue, { color: '#34D399' }]}>{totalCategories}</Text>
-            <Text style={styles.statLabel}>Категорий активно</Text>
+            <Text style={[styles.statValue, { color: '#10B981' }]}>{totalCategories}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Категорий активно</Text>
           </View>
         </View>
 
         {/* Action Quick Buttons */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={styles.primaryActionBtn}
+            style={[styles.primaryActionBtn, { backgroundColor: colors.accent }]}
             onPress={onNavigateToScan}
             activeOpacity={0.8}
           >
@@ -159,35 +178,44 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryActionBtn}
+            style={[
+              styles.secondaryActionBtn,
+              { backgroundColor: colors.card, borderColor: colors.accentBlue },
+            ]}
             onPress={onNavigateToAdvisor}
             activeOpacity={0.8}
           >
-            <Sparkles size={16} color="#38BDF8" style={{ marginRight: 6 }} />
-            <Text style={styles.secondaryActionText}>Чем платить?</Text>
+            <Sparkles size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+            <Text style={[styles.secondaryActionText, { color: colors.accentBlue }]}>Чем платить?</Text>
           </TouchableOpacity>
         </View>
 
         {/* Sharing & Import Action Bar */}
         <View style={styles.shareRow}>
           <TouchableOpacity
-            style={styles.shareMonthBtn}
+            style={[
+              styles.shareMonthBtn,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
             onPress={() =>
               ShareService.shareMonthCashback(cashbacks, banks, currentMonth, currentYear)
             }
             activeOpacity={0.8}
           >
-            <Share2 size={14} color="#FFDD2D" style={{ marginRight: 6 }} />
-            <Text style={styles.shareMonthText}>Поделиться месяцем</Text>
+            <Share2 size={14} color={colors.accent} style={{ marginRight: 6 }} />
+            <Text style={[styles.shareMonthText, { color: colors.accent }]}>Поделиться месяцем</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.importBtn}
+            style={[
+              styles.importBtn,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
             onPress={() => setImportModalVisible(true)}
             activeOpacity={0.8}
           >
-            <Download size={14} color="#38BDF8" style={{ marginRight: 6 }} />
-            <Text style={styles.importText}>Импортировать кэшбэк</Text>
+            <Download size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+            <Text style={[styles.importText, { color: colors.accentBlue }]}>Импортировать кэшбэк</Text>
           </TouchableOpacity>
         </View>
 
@@ -245,7 +273,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   content: {
     flex: 1,
@@ -258,19 +285,16 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#1E293B',
     borderRadius: 14,
     padding: 12,
     marginHorizontal: 4,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
   },
   statIconWrap: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
@@ -278,12 +302,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#F8FAFC',
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 10,
-    color: '#94A3B8',
     textAlign: 'center',
   },
   actionsContainer: {
@@ -296,7 +318,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFDD2D',
     paddingVertical: 12,
     borderRadius: 12,
   },
@@ -310,16 +331,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#38BDF8',
   },
   secondaryActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#38BDF8',
   },
   shareRow: {
     flexDirection: 'row',
@@ -331,32 +349,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 221, 45, 0.3)',
   },
   shareMonthText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFDD2D',
   },
   importBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
   importText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#38BDF8',
   },
   banksList: {
     marginBottom: 16,

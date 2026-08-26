@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { MONTH_NAMES_RU } from '../constants/banks';
+import { useTheme } from '../context/ThemeContext';
 
 interface MonthSelectorProps {
   currentMonth: number;
@@ -14,6 +15,8 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
   currentYear,
   onSelectMonth,
 }) => {
+  const { colors } = useTheme();
+
   const handlePrev = () => {
     if (currentMonth === 0) {
       onSelectMonth(11, currentYear - 1);
@@ -31,21 +34,52 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          borderBottomColor: colors.cardBorder,
+        },
+      ]}
+    >
       <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.navButton} onPress={handlePrev} activeOpacity={0.7}>
-          <ChevronLeft size={20} color="#94A3B8" />
+        <TouchableOpacity
+          style={[
+            styles.navButton,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+          onPress={handlePrev}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <View style={styles.currentMonthBadge}>
-          <Calendar size={16} color="#38BDF8" style={{ marginRight: 6 }} />
-          <Text style={styles.monthText}>
-            {MONTH_NAMES_RU[currentMonth]} <Text style={styles.yearText}>{currentYear}</Text>
+        <View
+          style={[
+            styles.currentMonthBadge,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.cardBorder,
+            },
+          ]}
+        >
+          <Calendar size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+          <Text style={[styles.monthText, { color: colors.textPrimary }]}>
+            {MONTH_NAMES_RU[currentMonth]}{' '}
+            <Text style={[styles.yearText, { color: colors.textSecondary }]}>{currentYear}</Text>
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.navButton} onPress={handleNext} activeOpacity={0.7}>
-          <ChevronRight size={20} color="#94A3B8" />
+        <TouchableOpacity
+          style={[
+            styles.navButton,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+          onPress={handleNext}
+          activeOpacity={0.7}
+        >
+          <ChevronRight size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -59,11 +93,24 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
           return (
             <TouchableOpacity
               key={monthName}
-              style={[styles.chip, isSelected && styles.chipSelected]}
+              style={[
+                styles.chip,
+                { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                isSelected && {
+                  backgroundColor: colors.accentBlue,
+                  borderColor: colors.accentBlue,
+                },
+              ]}
               onPress={() => onSelectMonth(index, currentYear)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: colors.textSecondary },
+                  isSelected && styles.chipTextSelected,
+                ]}
+              >
                 {monthName.slice(0, 3)}
               </Text>
             </TouchableOpacity>
@@ -76,10 +123,8 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0F172A',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
   },
   headerRow: {
     flexDirection: 'row',
@@ -91,30 +136,26 @@ const styles = StyleSheet.create({
   navButton: {
     width: 34,
     height: 34,
-    borderRadius: 17,
-    backgroundColor: '#1E293B',
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   currentMonthBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   monthText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   yearText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#94A3B8',
   },
   scrollContainer: {
     paddingHorizontal: 14,
@@ -124,18 +165,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#1E293B',
-  },
-  chipSelected: {
-    backgroundColor: '#38BDF8',
+    borderWidth: 1,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#94A3B8',
   },
   chipTextSelected: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 });

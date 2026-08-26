@@ -13,6 +13,7 @@ import {
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
 import { STANDARD_CATEGORIES } from '../constants/categories';
 import { MONTH_NAMES_RU } from '../constants/banks';
+import { useTheme } from '../context/ThemeContext';
 import { X, Plus, Trash2, Check, Sparkles } from 'lucide-react-native';
 
 interface AddCashbackModalProps {
@@ -36,6 +37,7 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { colors } = useTheme();
   const [items, setItems] = useState<CashbackItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [customCategory, setCustomCategory] = useState('');
@@ -98,41 +100,72 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
       >
-        <View style={styles.modalContent}>
+        <View
+          style={[
+            styles.modalContent,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
           {/* Top Bar */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.cardBorder }]}>
             <View>
-              <Text style={styles.title}>{bank.name}</Text>
-              <Text style={styles.subtitle}>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>{bank.name}</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Кэшбэк на {MONTH_NAMES_RU[month]} {year}
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <X size={20} color="#94A3B8" />
+            <TouchableOpacity
+              style={[styles.closeBtn, { backgroundColor: colors.inputBackground }]}
+              onPress={onClose}
+            >
+              <X size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
             {/* Current Added Items */}
-            <Text style={styles.sectionTitle}>Категории кэшбэка ({items.length})</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Категории кэшбэка ({items.length})
+            </Text>
             {items.length === 0 ? (
-              <Text style={styles.emptyItemsText}>Добавьте хотя бы одну категорию ниже</Text>
+              <Text style={[styles.emptyItemsText, { color: colors.textMuted }]}>
+                Добавьте хотя бы одну категорию ниже
+              </Text>
             ) : (
               <View style={styles.itemsList}>
                 {items.map((item) => (
-                  <View key={item.id} style={styles.itemRow}>
-                    <View style={styles.itemBadge}>
-                      <Text style={styles.itemPercentText}>{item.percent}%</Text>
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.itemRow,
+                      { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.itemBadge,
+                        { backgroundColor: colors.badgeBackground, borderColor: colors.accentBlue },
+                      ]}
+                    >
+                      <Text style={[styles.itemPercentText, { color: colors.accentBlue }]}>
+                        {item.percent}%
+                      </Text>
                     </View>
                     <View style={styles.itemTextContainer}>
-                      <Text style={styles.itemCategory}>{item.category}</Text>
-                      {item.note ? <Text style={styles.itemNote}>{item.note}</Text> : null}
+                      <Text style={[styles.itemCategory, { color: colors.textPrimary }]}>
+                        {item.category}
+                      </Text>
+                      {item.note ? (
+                        <Text style={[styles.itemNote, { color: colors.textSecondary }]}>
+                          {item.note}
+                        </Text>
+                      ) : null}
                     </View>
                     <TouchableOpacity
                       style={styles.deleteBtn}
                       onPress={() => handleRemoveItem(item.id)}
                     >
-                      <Trash2 size={16} color="#EF4444" />
+                      <Trash2 size={16} color={colors.accentRed} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -140,11 +173,20 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
             )}
 
             {/* Form to Add New Category */}
-            <View style={styles.addFormCard}>
-              <Text style={styles.formTitle}>Добавить категорию</Text>
+            <View
+              style={[
+                styles.addFormCard,
+                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+              ]}
+            >
+              <Text style={[styles.formTitle, { color: colors.textPrimary }]}>
+                Добавить категорию
+              </Text>
 
               {/* Quick Category Chips */}
-              <Text style={styles.inputLabel}>Выберите из частых:</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                Выберите из частых:
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -155,13 +197,26 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
                   return (
                     <TouchableOpacity
                       key={cat.id}
-                      style={[styles.chip, isSelected && styles.chipActive]}
+                      style={[
+                        styles.chip,
+                        { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                        isSelected && [
+                          styles.chipActive,
+                          { backgroundColor: colors.accentBlue, borderColor: colors.accentBlue },
+                        ],
+                      ]}
                       onPress={() => {
                         setSelectedCategory(cat.name);
                         setCustomCategory('');
                       }}
                     >
-                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: colors.textSecondary },
+                          isSelected && styles.chipTextActive,
+                        ]}
+                      >
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
@@ -171,9 +226,16 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
 
               {/* Custom Category Input */}
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                  },
+                ]}
                 placeholder="Или введите свою категорию (напр. 'Цветы')"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={customCategory}
                 onChangeText={(text) => {
                   setCustomCategory(text);
@@ -182,14 +244,23 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
               />
 
               {/* Percent Selector */}
-              <Text style={styles.inputLabel}>Процент кэшбэка:</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                Процент кэшбэка:
+              </Text>
               <View style={styles.percentRow}>
                 {COMMON_PERCENTS.map((pct) => {
                   const isSelected = selectedPercent === pct && !customPercent;
                   return (
                     <TouchableOpacity
                       key={pct}
-                      style={[styles.percentBtn, isSelected && styles.percentBtnActive]}
+                      style={[
+                        styles.percentBtn,
+                        { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                        isSelected && [
+                          styles.percentBtnActive,
+                          { backgroundColor: colors.accentBlue, borderColor: colors.accentBlue },
+                        ],
+                      ]}
                       onPress={() => {
                         setSelectedPercent(pct);
                         setCustomPercent('');
@@ -198,6 +269,7 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
                       <Text
                         style={[
                           styles.percentBtnText,
+                          { color: colors.textSecondary },
                           isSelected && styles.percentBtnTextActive,
                         ]}
                       >
@@ -209,9 +281,17 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
               </View>
 
               <TextInput
-                style={[styles.input, { marginTop: 8 }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                    marginTop: 8,
+                  },
+                ]}
                 placeholder="Или свой % (напр. 25)"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 value={customPercent}
                 onChangeText={setCustomPercent}
@@ -219,14 +299,24 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
 
               {/* Note / Condition */}
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                  },
+                ]}
                 placeholder="Примечание (напр. 'до 3000 ₽' или 'в Яндекс Еде')"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={note}
                 onChangeText={setNote}
               />
 
-              <TouchableOpacity style={styles.addCategoryAction} onPress={handleAddItem}>
+              <TouchableOpacity
+                style={[styles.addCategoryAction, { backgroundColor: colors.accent }]}
+                onPress={handleAddItem}
+              >
                 <Plus size={16} color="#0F172A" style={{ marginRight: 6 }} />
                 <Text style={styles.addCategoryActionText}>Добавить в список</Text>
               </TouchableOpacity>
@@ -234,8 +324,11 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
           </ScrollView>
 
           {/* Footer Save Button */}
-          <View style={styles.footer}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveAll}>
+          <View style={[styles.footer, { borderTopColor: colors.cardBorder }]}>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.accent }]}
+              onPress={handleSaveAll}
+            >
               <Check size={18} color="#0F172A" style={{ marginRight: 8 }} />
               <Text style={styles.saveBtnText}>Сохранить кэшбэк на месяц</Text>
             </TouchableOpacity>
@@ -253,12 +346,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0F172A',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   header: {
     flexDirection: 'row',
@@ -266,23 +357,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#F8FAFC',
   },
   subtitle: {
     fontSize: 13,
-    color: '#94A3B8',
     marginTop: 2,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -292,12 +379,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     marginBottom: 10,
   },
   emptyItemsText: {
     fontSize: 13,
-    color: '#64748B',
     marginBottom: 12,
   },
   itemsList: {
@@ -307,23 +392,20 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   itemBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     marginRight: 10,
+    borderWidth: 1,
   },
   itemPercentText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#38BDF8',
   },
   itemTextContainer: {
     flex: 1,
@@ -331,120 +413,100 @@ const styles = StyleSheet.create({
   itemCategory: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F8FAFC',
   },
   itemNote: {
     fontSize: 11,
-    color: '#94A3B8',
   },
   deleteBtn: {
     padding: 6,
   },
   addFormCard: {
-    backgroundColor: '#1E293B',
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#334155',
     marginBottom: 20,
   },
   formTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#38BDF8',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#94A3B8',
-    marginBottom: 6,
-    marginTop: 6,
+    marginBottom: 8,
   },
   categoryChips: {
     gap: 6,
-    paddingBottom: 8,
+    marginBottom: 10,
   },
   chip: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
   },
-  chipActive: {
-    backgroundColor: '#38BDF8',
-    borderColor: '#38BDF8',
-  },
+  chipActive: {},
   chipText: {
     fontSize: 12,
-    color: '#94A3B8',
+    fontWeight: '600',
   },
   chipTextActive: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   input: {
-    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: '#F8FAFC',
-    fontSize: 13,
-    marginTop: 8,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginBottom: 10,
   },
   percentRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginBottom: 4,
   },
   percentBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    minWidth: 42,
+    alignItems: 'center',
   },
-  percentBtnActive: {
-    backgroundColor: '#38BDF8',
-    borderColor: '#38BDF8',
-  },
+  percentBtnActive: {},
   percentBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
   },
   percentBtnTextActive: {
-    color: '#0F172A',
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   addCategoryAction: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#38BDF8',
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 4,
   },
   addCategoryActionText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
   },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFDD2D',
     paddingVertical: 14,
     borderRadius: 14,
   },

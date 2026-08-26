@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Switch,
+  TextInput,
   Alert,
   Platform,
 } from 'react-native';
@@ -16,6 +16,7 @@ import { NotificationService } from '../services/notifications';
 import { GeminiVisionService } from '../services/gemini';
 import { confirmDialog } from '../utils/alert';
 import { Header } from '../components/Header';
+import { useTheme } from '../context/ThemeContext';
 import {
   Key,
   Bell,
@@ -31,9 +32,13 @@ import {
   Heart,
   Info,
   Zap,
+  Sun,
+  Moon,
+  Palette,
 } from 'lucide-react-native';
 
 export const SettingsScreen: React.FC = () => {
+  const { colors, theme, setTheme } = useTheme();
   const [apiKey, setApiKey] = useState<string>('');
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [testingKey, setTestingKey] = useState<boolean>(false);
@@ -120,25 +125,97 @@ export const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Header title="Настройки" subtitle="Параметры AI и уведомлений" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Header title="Настройки" subtitle="Параметры темы, AI и уведомлений" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Gemini Vision API Key Card */}
-        <View style={styles.card}>
+        {/* Theme Switcher Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
           <View style={styles.cardHeader}>
-            <Key size={18} color="#FFDD2D" style={{ marginRight: 8 }} />
-            <Text style={styles.cardTitle}>Google Gemini API (AI Vision)</Text>
+            <Palette size={18} color={colors.accentBlue} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Тема оформления
+            </Text>
           </View>
-          <Text style={styles.cardDescription}>
-            Ключ используется для распознавания скриншотов банков. Бесплатный ключ можно получить в Google AI Studio.
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Выберите светлую или темную тему приложения.
           </Text>
 
-          <View style={styles.inputWrap}>
+          <View style={styles.themeToggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+                theme === 'dark' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
+              ]}
+              onPress={() => setTheme('dark')}
+              activeOpacity={0.7}
+            >
+              <Moon size={18} color={theme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 8 }} />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: theme === 'dark' ? colors.accent : colors.textSecondary },
+                ]}
+              >
+                Темная
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+                theme === 'light' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
+              ]}
+              onPress={() => setTheme('light')}
+              activeOpacity={0.7}
+            >
+              <Sun size={18} color={theme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 8 }} />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: theme === 'light' ? colors.accent : colors.textSecondary },
+                ]}
+              >
+                Светлая
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Gemini Vision API Key Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <Key size={18} color={colors.accent} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Google Gemini API (AI Vision)
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Ключ используется для распознавания скриншотов банков. В проект уже встроен рабочий ключ по умолчанию.
+          </Text>
+
+          <View
+            style={[
+              styles.inputWrap,
+              { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+            ]}
+          >
             <TextInput
-              style={styles.apiInput}
-              placeholder="Вставьте ваш Gemini API Key (AIzaSy...)"
-              placeholderTextColor="#64748B"
+              style={[styles.apiInput, { color: colors.textPrimary }]}
+              placeholder="Вставьте ваш Gemini API Key..."
+              placeholderTextColor={colors.textMuted}
               value={apiKey}
               onChangeText={setApiKey}
               secureTextEntry={!showApiKey}
@@ -149,102 +226,148 @@ export const SettingsScreen: React.FC = () => {
               onPress={() => setShowApiKey(!showApiKey)}
             >
               {showApiKey ? (
-                <EyeOff size={18} color="#94A3B8" />
+                <EyeOff size={18} color={colors.textMuted} />
               ) : (
-                <Eye size={18} color="#94A3B8" />
+                <Eye size={18} color={colors.textMuted} />
               )}
             </TouchableOpacity>
           </View>
 
           <View style={styles.keyActionsRow}>
-            <TouchableOpacity style={styles.saveKeyBtn} onPress={handleSaveApiKey}>
+            <TouchableOpacity
+              style={[styles.saveKeyBtn, { backgroundColor: colors.accent }]}
+              onPress={handleSaveApiKey}
+            >
               <Check size={16} color="#0F172A" style={{ marginRight: 6 }} />
               <Text style={styles.saveKeyBtnText}>Сохранить</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.testKeyBtn}
+              style={[
+                styles.testKeyBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accentBlue },
+              ]}
               onPress={handleTestApiKey}
               disabled={testingKey}
             >
-              <Zap size={16} color="#38BDF8" style={{ marginRight: 6 }} />
-              <Text style={styles.testKeyBtnText}>
+              <Zap size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.testKeyBtnText, { color: colors.accentBlue }]}>
                 {testingKey ? 'Проверка...' : 'Проверить AI'}
               </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.apiKeyHint}>
-            <Sparkles size={14} color="#38BDF8" style={{ marginRight: 6 }} />
-            <Text style={styles.apiKeyHintText}>
-              Без ключа доступно тестовое демо-распознавание для проверки работы.
+            <Sparkles size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+            <Text style={[styles.apiKeyHintText, { color: colors.textSecondary }]}>
+              Работает с моделью Gemini 3.6 Flash / 2.5 Flash Vision.
             </Text>
           </View>
         </View>
 
         {/* Notifications Card */}
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
           <View style={styles.cardHeader}>
-            <Bell size={18} color="#38BDF8" style={{ marginRight: 8 }} />
-            <Text style={styles.cardTitle}>Напоминания о кэшбэке</Text>
+            <Bell size={18} color={colors.accentBlue} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Напоминания о кэшбэке
+            </Text>
           </View>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
             Приложение напомнит 1-го числа каждого месяца зайти в банковские приложения и выбрать кэшбэк.
           </Text>
 
           <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Ежемесячные напоминания</Text>
+            <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>
+              Ежемесячные напоминания
+            </Text>
             <Switch
               value={notificationsEnabled}
               onValueChange={handleToggleNotifications}
-              trackColor={{ false: '#334155', true: '#38BDF8' }}
-              thumbColor={notificationsEnabled ? '#0F172A' : '#94A3B8'}
+              trackColor={{ false: colors.cardBorder, true: colors.accentBlue }}
+              thumbColor={notificationsEnabled ? '#FFFFFF' : colors.textMuted}
             />
           </View>
 
           <TouchableOpacity
-            style={styles.testNotificationBtn}
+            style={[
+              styles.testNotificationBtn,
+              { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+            ]}
             onPress={handleTestNotification}
           >
-            <Text style={styles.testNotificationBtnText}>
+            <Text style={[styles.testNotificationBtnText, { color: colors.accentBlue }]}>
               🔔 Отправить тестовое напоминание
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Data & Backup Card */}
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
           <View style={styles.cardHeader}>
-            <ShieldCheck size={18} color="#10B981" style={{ marginRight: 8 }} />
-            <Text style={styles.cardTitle}>Данные и конфиденциальность</Text>
+            <ShieldCheck size={18} color={colors.accentGreen} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Данные и конфиденциальность
+            </Text>
           </View>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
             Все ваши карты, категории и скриншоты хранятся строго локально на вашем устройстве.
           </Text>
 
           <View style={styles.backupActions}>
-            <TouchableOpacity style={styles.backupBtn} onPress={handleExportBackup}>
-              <Download size={16} color="#38BDF8" style={{ marginRight: 6 }} />
-              <Text style={styles.backupBtnText}>Экспорт резервной копии</Text>
+            <TouchableOpacity
+              style={[
+                styles.backupBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+              ]}
+              onPress={handleExportBackup}
+            >
+              <Download size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.backupBtnText, { color: colors.accentBlue }]}>
+                Экспорт резервной копии
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.resetBtn}
+              style={[
+                styles.resetBtn,
+                { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: colors.accentRed },
+              ]}
               onPress={handleResetSampleData}
             >
-              <RefreshCw size={16} color="#EF4444" style={{ marginRight: 6 }} />
-              <Text style={styles.resetBtnText}>Сбросить к образцу</Text>
+              <RefreshCw size={16} color={colors.accentRed} style={{ marginRight: 6 }} />
+              <Text style={[styles.resetBtnText, { color: colors.accentRed }]}>
+                Сбросить к образцу
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* About & Dedication Card */}
-        <View style={[styles.card, styles.aboutCard]}>
+        <View
+          style={[
+            styles.card,
+            styles.aboutCard,
+            { backgroundColor: colors.card },
+          ]}
+        >
           <View style={styles.cardHeader}>
-            <Info size={18} color="#FFDD2D" style={{ marginRight: 8 }} />
-            <Text style={styles.cardTitle}>О проекте Cashback Hub</Text>
+            <Info size={18} color={colors.accent} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              О проекте Cashback Hub
+            </Text>
           </View>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
             Умный агрегатор кэшбэков со всех банковских карт на каждый месяц. Позволяет распознавать категории по скриншотам с помощью AI и мгновенно подсказывает самую выгодную карту перед любой покупкой.
           </Text>
 
@@ -255,7 +378,9 @@ export const SettingsScreen: React.FC = () => {
             </Text>
           </View>
 
-          <Text style={styles.versionText}>Версия 1.0.0 (Release Build)</Text>
+          <Text style={[styles.versionText, { color: colors.textMuted }]}>
+            Версия 1.0.0 (Release Build)
+          </Text>
         </View>
 
         <View style={{ height: 40 }} />
@@ -267,7 +392,6 @@ export const SettingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   content: {
     flex: 1,
@@ -275,11 +399,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   card: {
-    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
     marginBottom: 16,
   },
   cardHeader: {
@@ -290,27 +412,42 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   cardDescription: {
     fontSize: 13,
-    color: '#94A3B8',
     lineHeight: 18,
     marginBottom: 14,
+  },
+  themeToggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  themeOptionBtnActive: {
+    borderWidth: 2,
+  },
+  themeOptionText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
     paddingHorizontal: 12,
     marginBottom: 10,
   },
   apiInput: {
     flex: 1,
-    color: '#F8FAFC',
     fontSize: 13,
     paddingVertical: 10,
   },
@@ -326,7 +463,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFDD2D',
     paddingVertical: 10,
     borderRadius: 10,
   },
@@ -340,16 +476,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: '#38BDF8',
     paddingVertical: 10,
     borderRadius: 10,
   },
   testKeyBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#38BDF8',
   },
   apiKeyHint: {
     flexDirection: 'row',
@@ -358,7 +491,6 @@ const styles = StyleSheet.create({
   },
   apiKeyHintText: {
     fontSize: 11,
-    color: '#94A3B8',
     flex: 1,
   },
   switchRow: {
@@ -370,20 +502,16 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F8FAFC',
   },
   testNotificationBtn: {
-    backgroundColor: '#0F172A',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   testNotificationBtnText: {
     fontSize: 13,
-    color: '#38BDF8',
     fontWeight: '600',
   },
   backupActions: {
@@ -394,35 +522,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F172A',
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   backupBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#38BDF8',
   },
   resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#EF4444',
   },
   resetBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#EF4444',
   },
   aboutCard: {
     borderColor: '#EC4899',
-    backgroundColor: '#1E293B',
   },
   dedicationBox: {
     flexDirection: 'row',
@@ -443,7 +564,6 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 11,
-    color: '#64748B',
     textAlign: 'center',
     marginTop: 4,
   },

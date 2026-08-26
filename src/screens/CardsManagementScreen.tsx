@@ -13,6 +13,7 @@ import {
 import { Bank } from '../types';
 import { StorageService } from '../services/storage';
 import { Header } from '../components/Header';
+import { useTheme } from '../context/ThemeContext';
 import { Plus, CreditCard, X, Check } from 'lucide-react-native';
 
 const PRESET_COLORS = [
@@ -29,6 +30,7 @@ const PRESET_COLORS = [
 ];
 
 export const CardsManagementScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [banks, setBanks] = useState<Bank[]>([]);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [newBankName, setNewBankName] = useState<string>('');
@@ -73,51 +75,66 @@ export const CardsManagementScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Мои банки и карты"
         subtitle="Настройте список используемых банков"
         rightAction={{
-          icon: <Plus size={20} color="#38BDF8" />,
+          icon: <Plus size={20} color={colors.accentBlue} />,
           onPress: () => setModalVisible(true),
         }}
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           Активные банки ({banks.filter((b) => b.isActive).length})
         </Text>
 
         <View style={styles.banksList}>
           {banks.map((bank) => (
-            <View key={bank.id} style={styles.bankRow}>
+            <View
+              key={bank.id}
+              style={[
+                styles.bankRow,
+                { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              ]}
+            >
               <View style={styles.bankLeft}>
                 <View
                   style={[styles.bankColorDot, { backgroundColor: bank.primaryColor }]}
                 />
                 <View style={styles.bankTextWrap}>
-                  <Text style={styles.bankName}>{bank.name}</Text>
-                  <Text style={styles.bankShortName}>Короткое: {bank.shortName}</Text>
+                  <Text style={[styles.bankName, { color: colors.textPrimary }]}>
+                    {bank.name}
+                  </Text>
+                  <Text style={[styles.bankShortName, { color: colors.textSecondary }]}>
+                    Короткое: {bank.shortName}
+                  </Text>
                 </View>
               </View>
 
               <Switch
                 value={bank.isActive}
                 onValueChange={() => handleToggle(bank.id)}
-                trackColor={{ false: '#334155', true: '#38BDF8' }}
-                thumbColor={bank.isActive ? '#0F172A' : '#94A3B8'}
+                trackColor={{ false: colors.cardBorder, true: colors.accentBlue }}
+                thumbColor={bank.isActive ? '#FFFFFF' : colors.textMuted}
               />
             </View>
           ))}
         </View>
 
         <TouchableOpacity
-          style={styles.addBankBtn}
+          style={[
+            styles.addBankBtn,
+            { backgroundColor: colors.card, borderColor: colors.accentBlue },
+          ]}
           onPress={() => setModalVisible(true)}
           activeOpacity={0.8}
         >
-          <Plus size={18} color="#38BDF8" style={{ marginRight: 8 }} />
-          <Text style={styles.addBankBtnText}>Добавить свой банк / карту</Text>
+          <Plus size={18} color={colors.accentBlue} style={{ marginRight: 8 }} />
+          <Text style={[styles.addBankBtnText, { color: colors.accentBlue }]}>
+            Добавить свой банк / карту
+          </Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -126,38 +143,65 @@ export const CardsManagementScreen: React.FC = () => {
       {/* Add Custom Bank Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Новый банк или карта</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                Новый банк или карта
+              </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={20} color="#94A3B8" />
+                <X size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Полное название банка:</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                Полное название банка:
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                  },
+                ]}
                 placeholder="Например: Промсвязьбанк"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={newBankName}
                 onChangeText={setNewBankName}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Краткое имя (для бейджей):</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                Краткое имя (для бейджей):
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                  },
+                ]}
                 placeholder="Например: ПСБ"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={newBankShort}
                 onChangeText={setNewBankShort}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Цвет карты/бренда:</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                Цвет карты/бренда:
+              </Text>
               <View style={styles.colorPalette}>
                 {PRESET_COLORS.map((color) => {
                   const isSelected = selectedColor === color;
@@ -183,8 +227,11 @@ export const CardsManagementScreen: React.FC = () => {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.saveBankBtn} onPress={handleAddCustomBank}>
-              <Check size={18} color="#0F172A" style={{ marginRight: 6 }} />
+            <TouchableOpacity
+              style={[styles.saveBankBtn, { backgroundColor: colors.accentBlue }]}
+              onPress={handleAddCustomBank}
+            >
+              <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.saveBankBtnText}>Сохранить банк</Text>
             </TouchableOpacity>
           </View>
@@ -197,7 +244,6 @@ export const CardsManagementScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   content: {
     flex: 1,
@@ -207,7 +253,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     marginBottom: 12,
   },
   banksList: {
@@ -218,11 +263,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B',
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   bankLeft: {
     flexDirection: 'row',
@@ -241,27 +284,22 @@ const styles = StyleSheet.create({
   bankName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   bankShortName: {
     fontSize: 12,
-    color: '#94A3B8',
     marginTop: 2,
   },
   addBankBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#38BDF8',
   },
   addBankBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#38BDF8',
   },
   modalOverlay: {
     flex: 1,
@@ -270,11 +308,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#0F172A',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -285,7 +321,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#F8FAFC',
   },
   formGroup: {
     marginBottom: 14,
@@ -293,17 +328,13 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#94A3B8',
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#1E293B',
     borderWidth: 1,
-    borderColor: '#334155',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#F8FAFC',
     fontSize: 14,
   },
   colorPalette: {
@@ -326,7 +357,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#38BDF8',
     paddingVertical: 12,
     borderRadius: 12,
     marginTop: 10,
@@ -334,6 +364,6 @@ const styles = StyleSheet.create({
   saveBankBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
 });
