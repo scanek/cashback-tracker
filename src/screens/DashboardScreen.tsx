@@ -25,6 +25,7 @@ import {
   Layers,
   Share2,
   Download,
+  FileText,
 } from 'lucide-react-native';
 
 interface DashboardScreenProps {
@@ -194,7 +195,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <View style={styles.shareRow}>
           <TouchableOpacity
             style={[
-              styles.shareMonthBtn,
+              styles.shareActionBtn,
               { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
             onPress={() =>
@@ -202,20 +203,40 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             }
             activeOpacity={0.8}
           >
-            <Share2 size={14} color={colors.accent} style={{ marginRight: 6 }} />
-            <Text style={[styles.shareMonthText, { color: colors.accent }]}>Поделиться месяцем</Text>
+            <Share2 size={13} color={colors.accent} style={{ marginRight: 4 }} />
+            <Text style={[styles.shareActionText, { color: colors.accent }]}>
+              Код месяца
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
-              styles.importBtn,
+              styles.shareActionBtn,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={() =>
+              ShareService.exportMonthFile(cashbacks, currentMonth, currentYear)
+            }
+            activeOpacity={0.8}
+          >
+            <FileText size={13} color={colors.accentGreen} style={{ marginRight: 4 }} />
+            <Text style={[styles.shareActionText, { color: colors.accentGreen }]}>
+              Файл .json
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.shareActionBtn,
               { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
             onPress={() => setImportModalVisible(true)}
             activeOpacity={0.8}
           >
-            <Download size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
-            <Text style={[styles.importText, { color: colors.accentBlue }]}>Импортировать кэшбэк</Text>
+            <Download size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
+            <Text style={[styles.shareActionText, { color: colors.accentBlue }]}>
+              Импорт
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -341,10 +362,10 @@ const styles = StyleSheet.create({
   },
   shareRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: 14,
   },
-  shareMonthBtn: {
+  shareActionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -353,20 +374,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  shareMonthText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  importBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  importText: {
+  shareActionText: {
     fontSize: 12,
     fontWeight: '700',
   },

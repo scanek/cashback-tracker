@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
 import { MONTH_NAMES_RU } from '../constants/banks';
@@ -23,6 +24,8 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Upload,
 } from 'lucide-react-native';
 
 interface ImportCashbackModalProps {
@@ -59,6 +62,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
   const [targetMonth, setTargetMonth] = useState<number>(new Date().getMonth());
   const [targetYear, setTargetYear] = useState<number>(new Date().getFullYear());
   const [mergeMode, setMergeMode] = useState<'replace' | 'merge'>('replace');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -79,9 +83,22 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
     }
   };
 
+  const handlePickFileWeb = (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        handleTextChange(content);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleApplyImport = async () => {
     if (!parsedData) {
-      Alert.alert('Ошибка', 'Вставьте корректный код или сообщение с кэшбэком (начинается с CBHUB:...)');
+      Alert.alert('Ошибка', 'Вставьте корректный код (CBHUB:...) или загрузите .json файл');
       return;
     }
 
@@ -96,11 +113,17 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
           finalItems = [...existing.items];
           for (const newItem of parsedData.items) {
             if (!finalItems.some((ei) => ei.category.toLowerCase() === newItem.category.toLowerCase())) {
-              finalItems.push(newItem);
+              finalItems.push({
+                ...newItem,
+                id: newItem.id || Date.now().toString() + Math.random().toString().slice(2, 6),
+              });
             }
           }
         } else {
-          finalItems = parsedData.items;
+          finalItems = parsedData.items.map((it, idx) => ({
+            ...it,
+            id: it.id || `import-${idx}-${Date.now()}`,
+          }));
         }
 
         await StorageService.saveMonthlyCashback({
@@ -118,6 +141,10 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
             id: `${cb.bankId}-${targetMonth}-${targetYear}`,
             month: targetMonth,
             year: targetYear,
+            items: cb.items.map((it, idx) => ({
+              ...it,
+              id: it.id || `import-full-${idx}-${Date.now()}`,
+            })),
             updatedAt: new Date().toISOString(),
           });
         }
@@ -149,7 +176,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                   Импорт кэшбэка
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Вставьте сообщение или код от другого пользователя
+                  Вставьте код CBHUB или загрузите .json файл
                 </Text>
               </View>
             </View>
@@ -159,16 +186,41 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
           </View>
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-            {/* Input Box */}
+            {/* Action Card: Upload File or Paste Code */}
             <View
               style={[
                 styles.card,
                 { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
               ]}
             >
-              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
-                Вставьте полученный текст или код CBHUB:
-              </Text>
+              <View style={styles.inputHeaderRow}>
+                <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
+                  Код кэшбэка (CBHUB:...):
+                </Text>
+
+                {Platform.OS === 'web' && (
+                  <>
+                    <input
+                      type="file"
+                      ref={fileInputRef as any}
+                      style={{ display: 'none' }}
+                      accept=".json,application/json"
+                      onChange={handlePickFileWeb}
+                    />
+                    <TouchableOpacity
+                      style={[styles.uploadFileBtn, { borderColor: colors.accentBlue }]}
+                      onPress={() => fileInputRef.current?.click()}
+                      activeOpacity={0.7}
+                    >
+                      <Upload size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
+                      <Text style={[styles.uploadFileBtnText, { color: colors.accentBlue }]}>
+                        Выбрать .json файл
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+
               <TextInput
                 style={[
                   styles.textInput,
@@ -178,7 +230,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                     color: colors.textPrimary,
                   },
                 ]}
-                placeholder="Вставьте сюда сообщение из Telegram / WhatsApp..."
+                placeholder="Вставьте скопированный код CBHUB:..."
                 placeholderTextColor={colors.textMuted}
                 value={rawText}
                 onChangeText={handleTextChange}
@@ -377,7 +429,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
               <View style={styles.errorBox}>
                 <AlertCircle size={16} color="#EF4444" style={{ marginRight: 6 }} />
                 <Text style={styles.errorBoxText}>
-                  В тексте не найден код кэшбэка (CBHUB:...). Убедитесь, что скопировали всё сообщение целиком.
+                  В тексте не найден корректный код (CBHUB:...). Вставьте скопированный код или выберите .json файл.
                 </Text>
               </View>
             ) : null}
@@ -398,7 +450,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
               <Text style={styles.applyBtnText}>
                 {parsedData
                   ? `Импортировать в ${MONTH_NAMES_RU[targetMonth]}`
-                  : 'Ожидание кода...'}
+                  : 'Ожидание кода или файла...'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -450,10 +502,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 16,
   },
+  inputHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   cardLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 8,
+  },
+  uploadFileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  uploadFileBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   textInput: {
     borderRadius: 12,
