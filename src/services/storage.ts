@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   geminiModel: 'gemini-3.6-flash',
   enableMonthlyReminders: true,
   activeTheme: 'dark',
+  widgetTheme: 'dark',
 };
 
 const SAMPLE_CASHBACKS: MonthlyCashback[] = [

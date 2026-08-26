@@ -47,6 +47,7 @@ export interface AppSettings {
   geminiModel: string;
   enableMonthlyReminders: boolean;
   activeTheme: 'dark' | 'light' | 'system';
+  widgetTheme?: 'dark' | 'light' | 'transparent';
 }
 
 export interface ScanResult {

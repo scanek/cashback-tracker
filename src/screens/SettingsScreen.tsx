@@ -35,7 +35,10 @@ import {
   Sun,
   Moon,
   Palette,
+  LayoutGrid,
 } from 'lucide-react-native';
+import { WidgetThemeMode } from '../widgets/CashbackWidget';
+import { WidgetService } from '../services/widget';
 
 export const SettingsScreen: React.FC = () => {
   const { colors, theme, setTheme } = useTheme();
@@ -43,6 +46,7 @@ export const SettingsScreen: React.FC = () => {
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [testingKey, setTestingKey] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [widgetTheme, setWidgetTheme] = useState<WidgetThemeMode>('dark');
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
@@ -51,9 +55,18 @@ export const SettingsScreen: React.FC = () => {
       setSettings(s);
       setApiKey(s.geminiApiKey || '');
       setNotificationsEnabled(s.enableMonthlyReminders);
+      if (s.widgetTheme) {
+        setWidgetTheme(s.widgetTheme as WidgetThemeMode);
+      }
     };
     load();
   }, []);
+
+  const handleSetWidgetTheme = async (mode: WidgetThemeMode) => {
+    setWidgetTheme(mode);
+    await StorageService.saveSettings({ widgetTheme: mode });
+    WidgetService.updateWidget(mode);
+  };
 
   const handleSaveApiKey = async () => {
     const clean = GeminiVisionService.sanitizeApiKey(apiKey);
@@ -184,6 +197,86 @@ export const SettingsScreen: React.FC = () => {
                 ]}
               >
                 Светлая
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Widget Theme Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <LayoutGrid size={18} color={colors.accent} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Тема виджета на рабочем столе
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Выберите оформление виджета (также можно переключать нажатием на иконку темы на самом виджете).
+          </Text>
+
+          <View style={styles.themeToggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+                widgetTheme === 'dark' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
+              ]}
+              onPress={() => handleSetWidgetTheme('dark')}
+              activeOpacity={0.7}
+            >
+              <Moon size={15} color={widgetTheme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: widgetTheme === 'dark' ? colors.accent : colors.textSecondary },
+                ]}
+              >
+                Темная
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+                widgetTheme === 'light' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
+              ]}
+              onPress={() => handleSetWidgetTheme('light')}
+              activeOpacity={0.7}
+            >
+              <Sun size={15} color={widgetTheme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: widgetTheme === 'light' ? colors.accent : colors.textSecondary },
+                ]}
+              >
+                Светлая
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+                widgetTheme === 'transparent' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
+              ]}
+              onPress={() => handleSetWidgetTheme('transparent')}
+              activeOpacity={0.7}
+            >
+              <Sparkles size={15} color={widgetTheme === 'transparent' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: widgetTheme === 'transparent' ? colors.accent : colors.textSecondary },
+                ]}
+              >
+                Стекло 💎
               </Text>
             </TouchableOpacity>
           </View>
