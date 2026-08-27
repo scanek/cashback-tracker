@@ -204,16 +204,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
             ]}
           >
-            <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrowBtn}>
-              <ChevronLeft size={16} color={colors.accentBlue} />
+            <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrowBtn} activeOpacity={0.7}>
+              <ChevronLeft size={18} color={colors.accentBlue} />
             </TouchableOpacity>
 
             <Text style={[styles.monthSelectorText, { color: colors.textPrimary }]}>
               {MONTH_NAMES_RU[activeMonth]} {activeYear}
             </Text>
 
-            <TouchableOpacity onPress={handleNextMonth} style={styles.monthArrowBtn}>
-              <ChevronRight size={16} color={colors.accentBlue} />
+            <TouchableOpacity onPress={handleNextMonth} style={styles.monthArrowBtn} activeOpacity={0.7}>
+              <ChevronRight size={18} color={colors.accentBlue} />
             </TouchableOpacity>
           </View>
 
@@ -310,7 +310,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={() => setTheme('dark')}
               activeOpacity={0.7}
             >
-              <Moon size={18} color={theme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 8 }} />
+              <Moon size={16} color={theme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
               <Text
                 style={[
                   styles.themeOptionText,
@@ -330,7 +330,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={() => setTheme('light')}
               activeOpacity={0.7}
             >
-              <Sun size={18} color={theme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 8 }} />
+              <Sun size={16} color={theme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
               <Text
                 style={[
                   styles.themeOptionText,
@@ -357,7 +357,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </Text>
           </View>
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Выберите оформление виджета (также можно переключать нажатием на иконку темы на самом виджете).
+            Выберите стиль виджета (также переключается по нажатию иконки темы на самом виджете).
           </Text>
 
           <View style={styles.themeToggleRow}>
@@ -370,12 +370,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={() => handleSetWidgetTheme('dark')}
               activeOpacity={0.7}
             >
-              <Moon size={15} color={widgetTheme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
+              <Moon size={15} color={widgetTheme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 4 }} />
               <Text
                 style={[
                   styles.themeOptionText,
                   { color: widgetTheme === 'dark' ? colors.accent : colors.textSecondary },
                 ]}
+                numberOfLines={1}
               >
                 Темная
               </Text>
@@ -390,12 +391,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={() => handleSetWidgetTheme('light')}
               activeOpacity={0.7}
             >
-              <Sun size={15} color={widgetTheme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
+              <Sun size={15} color={widgetTheme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 4 }} />
               <Text
                 style={[
                   styles.themeOptionText,
                   { color: widgetTheme === 'light' ? colors.accent : colors.textSecondary },
                 ]}
+                numberOfLines={1}
               >
                 Светлая
               </Text>
@@ -410,14 +412,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={() => handleSetWidgetTheme('transparent')}
               activeOpacity={0.7}
             >
-              <Sparkles size={15} color={widgetTheme === 'transparent' ? colors.accent : colors.textMuted} style={{ marginRight: 6 }} />
+              <Sparkles size={15} color={widgetTheme === 'transparent' ? colors.accent : colors.textMuted} style={{ marginRight: 4 }} />
               <Text
                 style={[
                   styles.themeOptionText,
                   { color: widgetTheme === 'transparent' ? colors.accent : colors.textSecondary },
                 ]}
+                numberOfLines={1}
               >
-                Стекло 💎
+                Стекло
               </Text>
             </TouchableOpacity>
           </View>
@@ -471,6 +474,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <TouchableOpacity
               style={[styles.saveKeyBtn, { backgroundColor: colors.accent }]}
               onPress={handleSaveApiKey}
+              activeOpacity={0.8}
             >
               <Check size={16} color="#0F172A" style={{ marginRight: 6 }} />
               <Text style={styles.saveKeyBtnText}>Сохранить</Text>
@@ -483,6 +487,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               ]}
               onPress={handleTestApiKey}
               disabled={testingKey}
+              activeOpacity={0.7}
             >
               <Zap size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
               <Text style={[styles.testKeyBtnText, { color: colors.accentBlue }]}>
@@ -534,6 +539,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
             ]}
             onPress={handleTestNotification}
+            activeOpacity={0.7}
           >
             <Text style={[styles.testNotificationBtnText, { color: colors.accentBlue }]}>
               🔔 Отправить тестовое напоминание
@@ -565,10 +571,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
               ]}
               onPress={handleExportBackup}
+              activeOpacity={0.7}
             >
               <Download size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
-              <Text style={[styles.backupBtnText, { color: colors.accentBlue }]}>
-                Полный бэкап данных
+              <Text style={[styles.backupBtnText, { color: colors.accentBlue }]} numberOfLines={1}>
+                Полный бэкап
               </Text>
             </TouchableOpacity>
 
@@ -578,10 +585,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: colors.accentRed },
               ]}
               onPress={handleResetSampleData}
+              activeOpacity={0.7}
             >
               <RefreshCw size={16} color={colors.accentRed} style={{ marginRight: 6 }} />
-              <Text style={[styles.resetBtnText, { color: colors.accentRed }]}>
-                Сбросить к образцу
+              <Text style={[styles.resetBtnText, { color: colors.accentRed }]} numberOfLines={1}>
+                Сброс данных
               </Text>
             </TouchableOpacity>
           </View>
@@ -657,8 +665,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+    flexShrink: 1,
   },
   cardDescription: {
     fontSize: 12,
@@ -669,18 +678,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 12,
   },
   monthArrowBtn: {
-    padding: 4,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   monthSelectorText: {
     fontSize: 13,
     fontWeight: '700',
+    textAlign: 'center',
+    flex: 1,
   },
   operationsGrid: {
     gap: 8,
@@ -690,7 +703,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -698,10 +711,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   operationBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   themeToggleRow: {
     flexDirection: 'row',
@@ -712,7 +729,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -720,7 +738,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   themeOptionText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   inputWrap: {
@@ -776,6 +794,7 @@ const styles = StyleSheet.create({
   },
   apiKeyHintText: {
     fontSize: 11,
+    flex: 1,
   },
   switchRow: {
     flexDirection: 'row',
@@ -787,6 +806,7 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 14,
     fontWeight: '600',
+    flex: 1,
   },
   testNotificationBtn: {
     paddingVertical: 11,
@@ -801,20 +821,22 @@ const styles = StyleSheet.create({
   },
   backupActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   backupBtn: {
-    flex: 1.2,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 11,
+    paddingHorizontal: 6,
     borderRadius: 12,
     borderWidth: 1,
   },
   backupBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 1,
   },
   resetBtn: {
     flex: 1,
@@ -822,12 +844,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 11,
+    paddingHorizontal: 6,
     borderRadius: 12,
     borderWidth: 1,
   },
   resetBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 1,
   },
   dedicationBox: {
     flexDirection: 'row',
@@ -844,6 +868,7 @@ const styles = StyleSheet.create({
     color: '#EC4899',
     fontWeight: '700',
     lineHeight: 18,
+    flex: 1,
   },
   versionText: {
     fontSize: 11,
