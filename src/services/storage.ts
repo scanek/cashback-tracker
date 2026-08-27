@@ -253,6 +253,17 @@ export class StorageService {
       if (data.cashbacks && Array.isArray(data.cashbacks)) {
         await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(data.cashbacks));
       }
+      if (data.settings && typeof data.settings === 'object') {
+        const current = await this.getSettings();
+        await this.saveSettings({
+          ...data.settings,
+          geminiApiKey: current.geminiApiKey || data.settings.geminiApiKey || EMBEDDED_GEMINI_API_KEY,
+        });
+      }
+      try {
+        const { WidgetService } = require('./widget');
+        WidgetService.updateWidget();
+      } catch {}
       return true;
     } catch (e) {
       console.error('Import failed', e);
