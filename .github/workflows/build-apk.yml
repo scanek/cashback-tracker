@@ -1,0 +1,70 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: 📱 Build Standalone Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🤖 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install npm dependencies
+        run: npm install
+
+      - name: ⚙️ Expo Prebuild (Generate Native Android Project)
+        run: npx expo prebuild --platform android --clean
+
+      - name: 🔨 Compile Android APK via Gradle
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: 🔍 Find and Rename APK
+        run: |
+          APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" ./Мои_Кэшбеки.apk
+
+      - name: 📤 Upload APK Artifact (Download in Actions tab)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Мои_Кэшбеки_APK
+          path: ./Мои_Кэшбеки.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 🚀 Attach APK to GitHub Release (If tagged)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./Мои_Кэшбеки.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
