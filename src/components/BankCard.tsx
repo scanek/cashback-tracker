@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
-import { Edit2, Plus, Trash2, CreditCard, Sparkles, AlertCircle, Share2 } from 'lucide-react-native';
+import { Edit2, Plus, Trash2, CreditCard, Sparkles, AlertCircle, Share2, Heart } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 
 interface BankCardProps {
@@ -23,6 +23,7 @@ export const BankCard: React.FC<BankCardProps> = ({
 }) => {
   const { colors, theme } = useTheme();
   const hasItems = cashback && cashback.items && cashback.items.length > 0;
+  const isShared = Boolean(cashback?.isShared);
 
   return (
     <View
@@ -39,6 +40,14 @@ export const BankCard: React.FC<BankCardProps> = ({
         <View style={styles.bankInfo}>
           <CreditCard size={20} color={bank.textColor} style={{ marginRight: 8 }} />
           <Text style={[styles.bankName, { color: bank.textColor }]}>{bank.name}</Text>
+          {isShared && (
+            <View style={styles.sharedTag}>
+              <Heart size={10} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 3 }} />
+              <Text style={styles.sharedTagText}>
+                {cashback?.sharedByName || 'Светик ❤️'}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.headerActions}>
@@ -253,5 +262,19 @@ const styles = StyleSheet.create({
   addCategoryBtnText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  sharedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EC4899',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  sharedTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import { Header } from '../components/Header';
 import { ImportCashbackModal } from '../components/ImportCashbackModal';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   Key,
   Bell,
@@ -69,6 +71,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [banks, setBanks] = useState<Bank[]>([]);
   const [monthCashbacks, setMonthCashbacks] = useState<MonthlyCashback[]>([]);
   const [isImportModalVisible, setIsImportModalVisible] = useState<boolean>(false);
+  const backupFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
     const s = await StorageService.getSettings();
@@ -172,6 +175,74 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         `cashback_backup_${new Date().toISOString().slice(0, 10)}.json`,
         backupJson
       );
+    }
+  };
+
+  const handleImportBackup = async () => {
+    if (Platform.OS === 'web') {
+      backupFileInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/plain', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const fileUri = result.assets[0].uri;
+        const content = await FileSystem.readAsStringAsync(fileUri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        if (content) {
+          processBackupJson(content);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Ошибка выбора файла', e.message || 'Не удалось открыть файл бэкапа');
+    }
+  };
+
+  const handlePickBackupWeb = (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        processBackupJson(content);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const processBackupJson = (jsonString: string) => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (!parsed.banks || !Array.isArray(parsed.banks)) {
+        Alert.alert('Ошибка бэкапа', 'Файл не содержит корректных данных банков');
+        return;
+      }
+
+      confirmDialog(
+        'Восстановление из бэкапа',
+        `Восстановить резервную копию? Будет загружено ${parsed.banks.length} банков и ${(
+          parsed.cashbacks || []
+        ).length} записей кэшбэка.`,
+        async () => {
+          const success = await StorageService.importBackup(jsonString);
+          if (success) {
+            await loadData();
+            Alert.alert('Готово!', 'Все данные успешно восстановлены из резервной копии!');
+          } else {
+            Alert.alert('Ошибка', 'Не удалось восстановить данные из бэкапа');
+          }
+        },
+        'Восстановить'
+      );
+    } catch (e) {
+      Alert.alert('Ошибка файла', 'Выбранный файл поврежден или не является валидным JSON');
     }
   };
 
@@ -564,6 +635,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Все ваши карты, категории и настройки хранятся строго локально на вашем устройстве.
           </Text>
 
+          {Platform.OS === 'web' && (
+            <input
+              type="file"
+              ref={backupFileInputRef as any}
+              style={{ display: 'none' }}
+              accept=".json,application/json"
+              onChange={handlePickBackupWeb}
+            />
+          )}
+
           <View style={styles.backupActions}>
             <TouchableOpacity
               style={[
@@ -573,9 +654,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={handleExportBackup}
               activeOpacity={0.7}
             >
-              <Download size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Download size={14} color={colors.accentBlue} style={{ marginRight: 4 }} />
               <Text style={[styles.backupBtnText, { color: colors.accentBlue }]} numberOfLines={1}>
-                Полный бэкап
+                Создать бэкап
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.backupBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accentGreen },
+              ]}
+              onPress={handleImportBackup}
+              activeOpacity={0.7}
+            >
+              <Upload size={14} color={colors.accentGreen} style={{ marginRight: 4 }} />
+              <Text style={[styles.backupBtnText, { color: colors.accentGreen }]} numberOfLines={1}>
+                Восстановить
               </Text>
             </TouchableOpacity>
 
@@ -587,9 +682,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={handleResetSampleData}
               activeOpacity={0.7}
             >
-              <RefreshCw size={16} color={colors.accentRed} style={{ marginRight: 6 }} />
+              <RefreshCw size={13} color={colors.accentRed} style={{ marginRight: 4 }} />
               <Text style={[styles.resetBtnText, { color: colors.accentRed }]} numberOfLines={1}>
-                Сброс данных
+                Сброс
               </Text>
             </TouchableOpacity>
           </View>
@@ -622,7 +717,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
 
           <Text style={[styles.versionText, { color: colors.textMuted }]}>
-            Версия 1.2.0 (Release Build) • Автор: Александр Щеголев
+            Версия 1.3.0 (Release Build) • Автор: Александр Щеголев
           </Text>
         </View>
 
@@ -821,35 +916,35 @@ const styles = StyleSheet.create({
   },
   backupActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   backupBtn: {
-    flex: 1,
+    flex: 1.1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     borderRadius: 12,
     borderWidth: 1,
   },
   backupBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     flexShrink: 1,
   },
   resetBtn: {
-    flex: 1,
+    flex: 0.8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     borderRadius: 12,
     borderWidth: 1,
   },
   resetBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     flexShrink: 1,
   },

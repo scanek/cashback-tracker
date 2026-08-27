@@ -142,12 +142,14 @@ export class StorageService {
     const all = await this.getAllCashbacks();
     const targetMonth = Number(cashback.month);
     const targetYear = Number(cashback.year);
+    const isShared = Boolean(cashback.isShared);
 
     const index = all.findIndex(
       (c) =>
         c.bankId === cashback.bankId &&
         Number(c.month) === targetMonth &&
-        Number(c.year) === targetYear
+        Number(c.year) === targetYear &&
+        Boolean(c.isShared) === isShared
     );
 
     let updated: MonthlyCashback[];
@@ -155,6 +157,8 @@ export class StorageService {
       ...cashback,
       month: targetMonth,
       year: targetYear,
+      isShared: isShared,
+      sharedByName: cashback.sharedByName || (isShared ? 'Светик ❤️' : undefined),
       updatedAt: new Date().toISOString(),
     };
 
@@ -173,17 +177,24 @@ export class StorageService {
     return updated;
   }
 
-  static async deleteMonthlyCashback(bankId: string, month: number, year: number): Promise<void> {
+  static async deleteMonthlyCashback(
+    bankId: string,
+    month: number,
+    year: number,
+    isShared?: boolean
+  ): Promise<void> {
     const all = await this.getAllCashbacks();
     const targetMonth = Number(month);
     const targetYear = Number(year);
+    const targetIsShared = Boolean(isShared);
 
     const filtered = all.filter(
       (c) =>
         !(
           c.bankId === bankId &&
           Number(c.month) === targetMonth &&
-          Number(c.year) === targetYear
+          Number(c.year) === targetYear &&
+          Boolean(c.isShared) === targetIsShared
         )
     );
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(filtered));

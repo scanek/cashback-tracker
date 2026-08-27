@@ -28,6 +28,8 @@ import {
   ChevronRight,
   FileText,
   Upload,
+  Heart,
+  User,
 } from 'lucide-react-native';
 
 interface ImportCashbackModalProps {
@@ -63,6 +65,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
   const [parsedData, setParsedData] = useState<SharedPayload | null>(null);
   const [targetMonth, setTargetMonth] = useState<number>(new Date().getMonth());
   const [targetYear, setTargetYear] = useState<number>(new Date().getFullYear());
+  const [importTarget, setImportTarget] = useState<'shared' | 'my'>('shared');
   const [mergeMode, setMergeMode] = useState<'replace' | 'merge'>('replace');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -130,17 +133,29 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
       return;
     }
 
+    const isShared = importTarget === 'shared';
+    const sharedByName = isShared ? 'Светик ❤️' : undefined;
+
     try {
       if (parsedData.type === 'single_bank' && parsedData.bankId && parsedData.items) {
         const bankId = parsedData.bankId;
-        const currentCashbacks: MonthlyCashback[] = await StorageService.getCashbacksForMonth(targetMonth, targetYear);
-        const existing = currentCashbacks.find((c: MonthlyCashback) => c.bankId === bankId);
+        const currentCashbacks: MonthlyCashback[] = await StorageService.getCashbacksForMonth(
+          targetMonth,
+          targetYear
+        );
+        const existing = currentCashbacks.find(
+          (c: MonthlyCashback) => c.bankId === bankId && Boolean(c.isShared) === isShared
+        );
 
         let finalItems: CashbackItem[] = [];
         if (mergeMode === 'merge' && existing) {
           finalItems = [...existing.items];
           for (const newItem of parsedData.items) {
-            if (!finalItems.some((ei) => ei.category.toLowerCase() === newItem.category.toLowerCase())) {
+            if (
+              !finalItems.some(
+                (ei) => ei.category.toLowerCase() === newItem.category.toLowerCase()
+              )
+            ) {
               finalItems.push({
                 ...newItem,
                 id: newItem.id || Date.now().toString() + Math.random().toString().slice(2, 6),
@@ -155,20 +170,24 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
         }
 
         await StorageService.saveMonthlyCashback({
-          id: `${bankId}-${targetMonth}-${targetYear}`,
+          id: `${bankId}-${targetMonth}-${targetYear}${isShared ? '-shared' : ''}`,
           bankId: bankId,
           month: targetMonth,
           year: targetYear,
           items: finalItems,
+          isShared: isShared,
+          sharedByName: sharedByName,
           updatedAt: new Date().toISOString(),
         });
       } else if (parsedData.type === 'full_month' && parsedData.allCashbacks) {
         for (const cb of parsedData.allCashbacks) {
           await StorageService.saveMonthlyCashback({
             ...cb,
-            id: `${cb.bankId}-${targetMonth}-${targetYear}`,
+            id: `${cb.bankId}-${targetMonth}-${targetYear}${isShared ? '-shared' : ''}`,
             month: targetMonth,
             year: targetYear,
+            isShared: isShared,
+            sharedByName: sharedByName,
             items: cb.items.map((it, idx) => ({
               ...it,
               id: it.id || `import-full-${idx}-${Date.now()}`,
@@ -178,7 +197,12 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
         }
       }
 
-      Alert.alert('Успешно!', `Категории кэшбэка импортированы на ${MONTH_NAMES_RU[targetMonth]} ${targetYear}!`);
+      Alert.alert(
+        'Успешно!',
+        `Категории кэшбэка импортированы в ${
+          isShared ? '«Карты семьи (Светик ❤️)»' : '«Мои карты»'
+        } на ${MONTH_NAMES_RU[targetMonth]} ${targetYear}!`
+      );
       onImportComplete();
       onClose();
     } catch (e: any) {
@@ -263,6 +287,74 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                 multiline
                 numberOfLines={3}
               />
+            </View>
+
+            {/* Target Destination: My vs Shared/Family */}
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+              ]}
+            >
+              <Text style={[styles.cardLabel, { color: colors.textSecondary, marginBottom: 8 }]}>
+                Куда сохранить импортированный кэшбэк:
+              </Text>
+              <View style={styles.targetToggleRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.targetToggleBtn,
+                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    importTarget === 'shared' && [
+                      styles.targetToggleBtnActive,
+                      { borderColor: '#EC4899', backgroundColor: 'rgba(236, 72, 153, 0.1)' },
+                    ],
+                  ]}
+                  onPress={() => setImportTarget('shared')}
+                  activeOpacity={0.7}
+                >
+                  <Heart
+                    size={15}
+                    color={importTarget === 'shared' ? '#EC4899' : colors.textMuted}
+                    fill={importTarget === 'shared' ? '#EC4899' : 'transparent'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.targetToggleText,
+                      { color: importTarget === 'shared' ? '#EC4899' : colors.textSecondary },
+                    ]}
+                  >
+                    Карты Светика ❤️
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.targetToggleBtn,
+                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    importTarget === 'my' && [
+                      styles.targetToggleBtnActive,
+                      { borderColor: colors.accentBlue, backgroundColor: 'rgba(56, 189, 248, 0.1)' },
+                    ],
+                  ]}
+                  onPress={() => setImportTarget('my')}
+                  activeOpacity={0.7}
+                >
+                  <User
+                    size={15}
+                    color={importTarget === 'my' ? colors.accentBlue : colors.textMuted}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.targetToggleText,
+                      { color: importTarget === 'my' ? colors.accentBlue : colors.textSecondary },
+                    ]}
+                  >
+                    Мои карты
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Parsing Status / Preview */}
@@ -537,6 +629,26 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  targetToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  targetToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  targetToggleBtnActive: {
+    borderWidth: 1.5,
+  },
+  targetToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   uploadFileBtn: {
     flexDirection: 'row',

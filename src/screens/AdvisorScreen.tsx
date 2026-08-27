@@ -24,13 +24,16 @@ import {
   Sparkles,
   TrendingUp,
   Layers,
-  CheckCircle2,
+  Heart,
+  User,
+  Users,
 } from 'lucide-react-native';
 
 export const AdvisorScreen: React.FC = () => {
   const { colors } = useTheme();
   const [query, setQuery] = useState<string>('');
   const [selectedBankFilter, setSelectedBankFilter] = useState<string>('all');
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'my' | 'shared'>('all');
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -72,6 +75,8 @@ export const AdvisorScreen: React.FC = () => {
       return (cb.items || []).map((item) => ({
         bank,
         item,
+        isShared: Boolean(cb.isShared),
+        sharedByName: cb.sharedByName,
       }));
     })
     .sort((a, b) => {
@@ -81,16 +86,30 @@ export const AdvisorScreen: React.FC = () => {
       return a.bank.name.localeCompare(b.bank.name);
     });
 
-  // Filter by bank if user taps a bank filter pill
-  const filteredOffers =
-    selectedBankFilter === 'all'
-      ? allOffers
-      : allOffers.filter((o) => o.bank.id === selectedBankFilter);
+  // Filter offers by bank and owner
+  const filteredOffers = allOffers.filter((o) => {
+    const matchesBank = selectedBankFilter === 'all' || o.bank.id === selectedBankFilter;
+    const matchesOwner =
+      ownerFilter === 'all'
+        ? true
+        : ownerFilter === 'shared'
+        ? o.isShared
+        : !o.isShared;
+    return matchesBank && matchesOwner;
+  });
+
+  const filteredResults = results.filter((r) => {
+    if (ownerFilter === 'my') return !r.isShared;
+    if (ownerFilter === 'shared') return Boolean(r.isShared);
+    return true;
+  });
 
   // Active banks that have cashbacks in this month
   const activeBanksWithCashback = banks.filter((b) =>
     cashbacks.some((c) => c.bankId === b.id && c.items && c.items.length > 0)
   );
+
+  const sharedCount = allOffers.filter((o) => o.isShared).length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -107,6 +126,98 @@ export const AdvisorScreen: React.FC = () => {
           setCurrentYear(y);
         }}
       />
+
+      {/* Owner Filter Row (All vs My vs Shared) */}
+      <View style={styles.ownerFilterWrap}>
+        <View
+          style={[
+            styles.ownerFilterContainer,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.ownerFilterBtn,
+              ownerFilter === 'all' && [
+                styles.ownerFilterBtnActive,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accent },
+              ],
+            ]}
+            onPress={() => setOwnerFilter('all')}
+            activeOpacity={0.7}
+          >
+            <Users
+              size={13}
+              color={ownerFilter === 'all' ? colors.accent : colors.textMuted}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.ownerFilterText,
+                { color: ownerFilter === 'all' ? colors.accent : colors.textSecondary },
+                ownerFilter === 'all' && styles.ownerFilterTextActive,
+              ]}
+            >
+              Все ({allOffers.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.ownerFilterBtn,
+              ownerFilter === 'my' && [
+                styles.ownerFilterBtnActive,
+                { backgroundColor: colors.badgeBackground, borderColor: colors.accentBlue },
+              ],
+            ]}
+            onPress={() => setOwnerFilter('my')}
+            activeOpacity={0.7}
+          >
+            <User
+              size={13}
+              color={ownerFilter === 'my' ? colors.accentBlue : colors.textMuted}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.ownerFilterText,
+                { color: ownerFilter === 'my' ? colors.accentBlue : colors.textSecondary },
+                ownerFilter === 'my' && styles.ownerFilterTextActive,
+              ]}
+            >
+              Мои ({allOffers.filter((o) => !o.isShared).length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.ownerFilterBtn,
+              ownerFilter === 'shared' && [
+                styles.ownerFilterBtnActive,
+                { backgroundColor: 'rgba(236, 72, 153, 0.12)', borderColor: '#EC4899' },
+              ],
+            ]}
+            onPress={() => setOwnerFilter('shared')}
+            activeOpacity={0.7}
+          >
+            <Heart
+              size={13}
+              color={ownerFilter === 'shared' ? '#EC4899' : colors.textMuted}
+              fill={ownerFilter === 'shared' ? '#EC4899' : 'transparent'}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.ownerFilterText,
+                { color: ownerFilter === 'shared' ? '#EC4899' : colors.textSecondary },
+                ownerFilter === 'shared' && styles.ownerFilterTextActive,
+              ]}
+            >
+              Светик ❤️ ({sharedCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <ScrollView
         style={styles.content}
@@ -125,7 +236,7 @@ export const AdvisorScreen: React.FC = () => {
           <Search size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Поиск магазина или категории (АЗС, Кафе, Пятёрочка...)"
+            placeholder="Поиск (Бензин, АЗС, Супермаркеты, Пятёрочка...)"
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -178,10 +289,10 @@ export const AdvisorScreen: React.FC = () => {
         {query.trim().length > 0 ? (
           <View style={styles.resultsContainer}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Результаты для «{query}» ({results.length})
+              Результаты для «{query}» ({filteredResults.length})
             </Text>
 
-            {results.length === 0 ? (
+            {filteredResults.length === 0 ? (
               <View
                 style={[
                   styles.noResultsCard,
@@ -196,11 +307,11 @@ export const AdvisorScreen: React.FC = () => {
                 </Text>
               </View>
             ) : (
-              results.map((res, index) => {
+              filteredResults.map((res, index) => {
                 const isBest = index === 0;
                 return (
                   <View
-                    key={`${res.bank.id}-${res.item.id}-${index}`}
+                    key={`${res.bank.id}-${res.item.id}-${res.isShared ? 'shared' : 'my'}-${index}`}
                     style={[
                       styles.matchCard,
                       { backgroundColor: colors.card, borderColor: colors.cardBorder },
@@ -242,6 +353,14 @@ export const AdvisorScreen: React.FC = () => {
                           <Text style={[styles.bankTitle, { color: colors.textPrimary }]}>
                             {res.bank.name}
                           </Text>
+                          {res.isShared && (
+                            <View style={styles.sharedBadge}>
+                              <Heart size={10} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 3 }} />
+                              <Text style={styles.sharedBadgeText}>
+                                {res.sharedByName || 'Светик ❤️'}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                         <Text style={[styles.matchReason, { color: colors.textSecondary }]}>
                           {res.matchReason}
@@ -282,7 +401,7 @@ export const AdvisorScreen: React.FC = () => {
               <View style={styles.sectionHeaderTitleRow}>
                 <TrendingUp size={18} color={colors.accentBlue} style={{ marginRight: 6 }} />
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                  Все активные кэшбэки на месяц ({allOffers.length})
+                  Все активные кэшбэки на месяц ({filteredOffers.length})
                 </Text>
               </View>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
@@ -320,12 +439,12 @@ export const AdvisorScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    Все банки ({allOffers.length})
+                    Все банки ({filteredOffers.length})
                   </Text>
                 </TouchableOpacity>
 
                 {activeBanksWithCashback.map((bank) => {
-                  const count = allOffers.filter((o) => o.bank.id === bank.id).length;
+                  const count = filteredOffers.filter((o) => o.bank.id === bank.id).length;
                   const isSelected = selectedBankFilter === bank.id;
                   return (
                     <TouchableOpacity
@@ -373,7 +492,7 @@ export const AdvisorScreen: React.FC = () => {
 
                   return (
                     <TouchableOpacity
-                      key={`${offer.bank.id}-${offer.item.id}-${idx}`}
+                      key={`${offer.bank.id}-${offer.item.id}-${offer.isShared ? 'shared' : 'my'}-${idx}`}
                       style={[
                         styles.offerItemCard,
                         { backgroundColor: colors.card, borderColor: colors.cardBorder },
@@ -405,11 +524,21 @@ export const AdvisorScreen: React.FC = () => {
 
                         {/* Category and Condition Details */}
                         <View style={styles.offerDetails}>
-                          <Text
-                            style={[styles.offerCategoryName, { color: colors.textPrimary }]}
-                          >
-                            {offer.item.category}
-                          </Text>
+                          <View style={styles.categoryTitleRow}>
+                            <Text
+                              style={[styles.offerCategoryName, { color: colors.textPrimary }]}
+                            >
+                              {offer.item.category}
+                            </Text>
+                            {offer.isShared && (
+                              <View style={styles.sharedBadge}>
+                                <Heart size={9} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 2 }} />
+                                <Text style={styles.sharedBadgeText}>
+                                  {offer.sharedByName || 'Светик ❤️'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                           {offer.item.note && (
                             <Text
                               style={[styles.offerNoteText, { color: colors.textMuted }]}
@@ -485,6 +614,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  ownerFilterWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  ownerFilterContainer: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 3,
+    borderWidth: 1,
+    gap: 4,
+  },
+  ownerFilterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  ownerFilterBtnActive: {
+    borderWidth: 1,
+  },
+  ownerFilterText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  ownerFilterTextActive: {
+    fontWeight: '800',
+  },
   content: {
     flex: 1,
     paddingHorizontal: 16,
@@ -496,7 +658,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 10,
   },
   searchInput: {
@@ -509,7 +671,7 @@ const styles = StyleSheet.create({
   },
   chipsScroll: {
     gap: 8,
-    paddingBottom: 14,
+    paddingBottom: 12,
   },
   chip: {
     paddingHorizontal: 12,
@@ -610,6 +772,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 2,
+    flexWrap: 'wrap',
   },
   bankIndicator: {
     width: 8,
@@ -620,6 +783,20 @@ const styles = StyleSheet.create({
   bankTitle: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  sharedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EC4899',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+    marginLeft: 6,
+  },
+  sharedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   matchReason: {
     fontSize: 12,
@@ -711,6 +888,11 @@ const styles = StyleSheet.create({
   },
   offerDetails: {
     flex: 1,
+  },
+  categoryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   offerCategoryName: {
     fontSize: 13,

@@ -26,6 +26,8 @@ export interface MonthlyCashback {
   items: CashbackItem[];
   spentLimit?: number;
   updatedAt: string;
+  isShared?: boolean;
+  sharedByName?: string;
 }
 
 export interface PredefinedCategory {
@@ -40,6 +42,8 @@ export interface SmartMatchResult {
   item: CashbackItem;
   rank: number;
   matchReason: string;
+  isShared?: boolean;
+  sharedByName?: string;
 }
 
 export interface AppSettings {
