@@ -44,7 +44,7 @@ export const BankCard: React.FC<BankCardProps> = ({
             <View style={styles.sharedTag}>
               <Heart size={10} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 3 }} />
               <Text style={styles.sharedTagText}>
-                {cashback?.sharedByName || 'Светик ❤️'}
+                {cashback?.sharedByName || 'Партнер'}
               </Text>
             </View>
           )}

@@ -134,7 +134,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
     }
 
     const isShared = importTarget === 'shared';
-    const sharedByName = isShared ? 'Светик ❤️' : undefined;
+    const sharedByName = isShared ? 'Партнер' : undefined;
 
     try {
       if (parsedData.type === 'single_bank' && parsedData.bankId && parsedData.items) {
@@ -200,7 +200,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
       Alert.alert(
         'Успешно!',
         `Категории кэшбэка импортированы в ${
-          isShared ? '«Карты семьи (Светик ❤️)»' : '«Мои карты»'
+          isShared ? '«Карты партнера»' : '«Мои карты»'
         } на ${MONTH_NAMES_RU[targetMonth]} ${targetYear}!`
       );
       onImportComplete();
@@ -324,7 +324,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                       { color: importTarget === 'shared' ? '#EC4899' : colors.textSecondary },
                     ]}
                   >
-                    Карты Светика ❤️
+                    Карты партнера
                   </Text>
                 </TouchableOpacity>
 

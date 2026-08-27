@@ -158,7 +158,7 @@ export class StorageService {
       month: targetMonth,
       year: targetYear,
       isShared: isShared,
-      sharedByName: cashback.sharedByName || (isShared ? 'Светик ❤️' : undefined),
+      sharedByName: cashback.sharedByName || (isShared ? 'Партнер' : undefined),
       updatedAt: new Date().toISOString(),
     };
 

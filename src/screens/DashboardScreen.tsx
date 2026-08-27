@@ -76,7 +76,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     await StorageService.saveMonthlyCashback({
       ...cashback,
       isShared,
-      sharedByName: isShared ? editingCashback?.sharedByName || 'Светик ❤️' : undefined,
+      sharedByName: isShared ? editingCashback?.sharedByName || 'Партнер' : undefined,
     });
     await loadData();
   };
@@ -196,7 +196,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 ownerFilter === 'shared' && styles.tabBtnTextActive,
               ]}
             >
-              Светик ❤️ ({sharedCashbacksCount})
+              Карты партнера ({sharedCashbacksCount})
             </Text>
           </TouchableOpacity>
 
@@ -341,10 +341,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               >
                 <Heart size={28} color="#EC4899" fill="rgba(236, 72, 153, 0.2)" style={{ marginBottom: 8 }} />
                 <Text style={[styles.emptyStateText, { color: colors.textPrimary }]}>
-                  Пока нет импортированных карт Светика
+                  Пока нет добавленных карт партнера
                 </Text>
                 <Text style={[styles.emptyStateSub, { color: colors.textSecondary }]}>
-                  Нажмите «Импорт» в Настройках и вставьте код или .json файл, которым с вами поделились!
+                  Нажмите «Импорт» в Настройках, чтобы добавить категории партнера, или делитесь своими картами!
                 </Text>
               </View>
             )

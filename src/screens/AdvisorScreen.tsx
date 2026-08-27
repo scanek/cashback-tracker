@@ -213,7 +213,7 @@ export const AdvisorScreen: React.FC = () => {
                 ownerFilter === 'shared' && styles.ownerFilterTextActive,
               ]}
             >
-              Светик ❤️ ({sharedCount})
+              Партнер ({sharedCount})
             </Text>
           </TouchableOpacity>
         </View>
@@ -357,7 +357,7 @@ export const AdvisorScreen: React.FC = () => {
                             <View style={styles.sharedBadge}>
                               <Heart size={10} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 3 }} />
                               <Text style={styles.sharedBadgeText}>
-                                {res.sharedByName || 'Светик ❤️'}
+                                {res.sharedByName || 'Партнер'}
                               </Text>
                             </View>
                           )}
@@ -534,7 +534,7 @@ export const AdvisorScreen: React.FC = () => {
                               <View style={styles.sharedBadge}>
                                 <Heart size={9} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 2 }} />
                                 <Text style={styles.sharedBadgeText}>
-                                  {offer.sharedByName || 'Светик ❤️'}
+                                  {offer.sharedByName || 'Партнер'}
                                 </Text>
                               </View>
                             )}
