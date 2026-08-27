@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: 📱 Build Standalone Android APK
+    name: 📱 Build Standalone Android Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -41,16 +41,19 @@ jobs:
       - name: ⚙️ Expo Prebuild (Generate Native Android Project)
         run: npx expo prebuild --platform android --clean
 
-      - name: 🔨 Compile Android APK via Gradle
+      - name: 🔨 Compile Android Standalone Release APK (Bundles offline JS & Assets)
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
-      - name: 🔍 Find and Rename APK
+      - name: 🔍 Find and Rename Standalone APK
         run: |
-          APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
-          echo "Found APK: $APK_FILE"
+          APK_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
+          echo "Found Standalone APK: $APK_FILE"
           cp "$APK_FILE" ./Мои_Кэшбеки.apk
 
       - name: 📤 Upload APK Artifact (Download in Actions tab)
