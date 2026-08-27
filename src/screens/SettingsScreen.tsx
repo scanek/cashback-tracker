@@ -622,7 +622,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
 
           <Text style={[styles.versionText, { color: colors.textMuted }]}>
-            Версия 1.1.0 (Release Build) • Автор: Александр Щеголев
+            Версия 1.2.0 (Release Build) • Автор: Александр Щеголев
           </Text>
         </View>
 
