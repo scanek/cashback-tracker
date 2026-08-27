@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,15 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { AppSettings } from '../types';
+import { AppSettings, Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
 import { NotificationService } from '../services/notifications';
 import { GeminiVisionService } from '../services/gemini';
+import { ShareService } from '../services/share';
 import { confirmDialog } from '../utils/alert';
 import { Header } from '../components/Header';
+import { ImportCashbackModal } from '../components/ImportCashbackModal';
+import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
 import {
   Key,
@@ -36,11 +39,22 @@ import {
   Moon,
   Palette,
   LayoutGrid,
+  Camera,
+  Share2,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import { WidgetThemeMode } from '../widgets/CashbackWidget';
 import { WidgetService } from '../services/widget';
 
-export const SettingsScreen: React.FC = () => {
+interface SettingsScreenProps {
+  onNavigateToScan?: () => void;
+}
+
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({
+  onNavigateToScan,
+}) => {
   const { colors, theme, setTheme } = useTheme();
   const [apiKey, setApiKey] = useState<string>('');
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
@@ -49,18 +63,49 @@ export const SettingsScreen: React.FC = () => {
   const [widgetTheme, setWidgetTheme] = useState<WidgetThemeMode>('dark');
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
+  // Month state for sharing / export
+  const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth());
+  const [activeYear, setActiveYear] = useState<number>(new Date().getFullYear());
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [monthCashbacks, setMonthCashbacks] = useState<MonthlyCashback[]>([]);
+  const [isImportModalVisible, setIsImportModalVisible] = useState<boolean>(false);
+
+  const loadData = useCallback(async () => {
+    const s = await StorageService.getSettings();
+    setSettings(s);
+    setApiKey(s.geminiApiKey || '');
+    setNotificationsEnabled(s.enableMonthlyReminders);
+    if (s.widgetTheme) {
+      setWidgetTheme(s.widgetTheme as WidgetThemeMode);
+    }
+
+    const allBanks = await StorageService.getBanks();
+    const cbs = await StorageService.getCashbacksForMonth(activeMonth, activeYear);
+    setBanks(allBanks.filter((b) => b.isActive));
+    setMonthCashbacks(cbs);
+  }, [activeMonth, activeYear]);
+
   useEffect(() => {
-    const load = async () => {
-      const s = await StorageService.getSettings();
-      setSettings(s);
-      setApiKey(s.geminiApiKey || '');
-      setNotificationsEnabled(s.enableMonthlyReminders);
-      if (s.widgetTheme) {
-        setWidgetTheme(s.widgetTheme as WidgetThemeMode);
-      }
-    };
-    load();
-  }, []);
+    loadData();
+  }, [loadData]);
+
+  const handlePrevMonth = () => {
+    if (activeMonth === 0) {
+      setActiveMonth(11);
+      setActiveYear((y) => y - 1);
+    } else {
+      setActiveMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (activeMonth === 11) {
+      setActiveMonth(0);
+      setActiveYear((y) => y + 1);
+    } else {
+      setActiveMonth((m) => m + 1);
+    }
+  };
 
   const handleSetWidgetTheme = async (mode: WidgetThemeMode) => {
     setWidgetTheme(mode);
@@ -76,23 +121,13 @@ export const SettingsScreen: React.FC = () => {
 
   const handleTestApiKey = async () => {
     const clean = GeminiVisionService.sanitizeApiKey(apiKey);
-    if (!clean) {
-      Alert.alert('Внимание', 'Сначала введите ваш Gemini API ключ');
-      return;
-    }
-
     setTestingKey(true);
     const res = await GeminiVisionService.testApiKeyAndGetModel(clean);
     setTestingKey(false);
-
     if (res.success) {
-      await StorageService.saveSettings({ geminiApiKey: clean });
-      Alert.alert('✅ Успешно!', res.message);
+      Alert.alert('Успешно!', `Ключ работает! Модель: ${res.modelName}`);
     } else {
-      Alert.alert(
-        '❌ Ошибка проверки ключа',
-        `${res.message}\n\nУбедитесь, что вы создали бесплатный API Key именно в Google AI Studio (aistudio.google.com).`
-      );
+      Alert.alert('Ошибка ключа', res.message);
     }
   };
 
@@ -100,10 +135,9 @@ export const SettingsScreen: React.FC = () => {
     setNotificationsEnabled(val);
     await StorageService.saveSettings({ enableMonthlyReminders: val });
     if (val) {
-      const granted = await NotificationService.requestPermissions();
-      if (granted) {
-        await NotificationService.scheduleMonthlyReminder();
-      }
+      await NotificationService.scheduleMonthlyReminder();
+    } else {
+      await NotificationService.cancelMonthlyReminder();
     }
   };
 
@@ -117,6 +151,7 @@ export const SettingsScreen: React.FC = () => {
       'Восстановить примеры категорий и банков по умолчанию?',
       async () => {
         await StorageService.resetToSampleData();
+        await loadData();
         Alert.alert('Готово', 'Базовые данные восстановлены!');
       },
       'Сбросить'
@@ -133,15 +168,121 @@ export const SettingsScreen: React.FC = () => {
       a.download = `cashback_hub_backup_${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
     } else {
-      Alert.alert('Резервная копия', 'Резервная копия сформирована в памяти.');
+      await ShareService.shareOrDownloadFile(
+        `cashback_backup_${new Date().toISOString().slice(0, 10)}.json`,
+        backupJson
+      );
     }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Настройки" subtitle="Параметры темы, AI и уведомлений" />
+      <Header title="Настройки" subtitle="Параметры темы, AI, импорта и экспорта" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Operations & Sharing Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <Share2 size={18} color={colors.accent} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Импорт, экспорт и сканирование
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Инструменты для обмена кэшбэком, сохранения файлов и AI-распознавания скриншотов.
+          </Text>
+
+          {/* Month selector for sharing/export */}
+          <View
+            style={[
+              styles.monthSelectorBar,
+              { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+            ]}
+          >
+            <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrowBtn}>
+              <ChevronLeft size={16} color={colors.accentBlue} />
+            </TouchableOpacity>
+
+            <Text style={[styles.monthSelectorText, { color: colors.textPrimary }]}>
+              {MONTH_NAMES_RU[activeMonth]} {activeYear}
+            </Text>
+
+            <TouchableOpacity onPress={handleNextMonth} style={styles.monthArrowBtn}>
+              <ChevronRight size={16} color={colors.accentBlue} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Action Buttons Grid */}
+          <View style={styles.operationsGrid}>
+            {onNavigateToScan && (
+              <TouchableOpacity
+                style={[
+                  styles.operationBtn,
+                  { backgroundColor: colors.accent, borderColor: colors.accent },
+                ]}
+                onPress={onNavigateToScan}
+                activeOpacity={0.8}
+              >
+                <Camera size={18} color="#0F172A" style={{ marginRight: 8 }} />
+                <Text style={styles.primaryOperationBtnText}>
+                  Распознать скриншот
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.operationBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+              ]}
+              onPress={() =>
+                ShareService.shareMonthCashback(monthCashbacks, banks, activeMonth, activeYear)
+              }
+              activeOpacity={0.7}
+            >
+              <Share2 size={16} color={colors.accent} style={{ marginRight: 8 }} />
+              <Text style={[styles.operationBtnText, { color: colors.textPrimary }]}>
+                Поделиться кодом месяца
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.operationBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+              ]}
+              onPress={() =>
+                ShareService.exportMonthFile(monthCashbacks, activeMonth, activeYear)
+              }
+              activeOpacity={0.7}
+            >
+              <FileText size={16} color={colors.accentGreen} style={{ marginRight: 8 }} />
+              <Text style={[styles.operationBtnText, { color: colors.textPrimary }]}>
+                Скачать / Отправить файл .json
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.operationBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accentBlue },
+              ]}
+              onPress={() => setIsImportModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Download size={16} color={colors.accentBlue} style={{ marginRight: 8 }} />
+              <Text style={[styles.operationBtnText, { color: colors.accentBlue }]}>
+                Импортировать кэшбэк (код или файл)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Theme Switcher Card */}
         <View
           style={[
@@ -152,11 +293,11 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.cardHeader}>
             <Palette size={18} color={colors.accentBlue} style={{ marginRight: 8 }} />
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              Тема оформления
+              Тема оформления приложения
             </Text>
           </View>
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Выберите светлую или темную тему приложения.
+            Выберите светлую или темную тему интерфейса.
           </Text>
 
           <View style={styles.themeToggleRow}>
@@ -410,11 +551,11 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.cardHeader}>
             <ShieldCheck size={18} color={colors.accentGreen} style={{ marginRight: 8 }} />
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              Данные и конфиденциальность
+              Резервное копирование и сброс
             </Text>
           </View>
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Все ваши карты, категории и скриншоты хранятся строго локально на вашем устройстве.
+            Все ваши карты, категории и настройки хранятся строго локально на вашем устройстве.
           </Text>
 
           <View style={styles.backupActions}>
@@ -427,7 +568,7 @@ export const SettingsScreen: React.FC = () => {
             >
               <Download size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
               <Text style={[styles.backupBtnText, { color: colors.accentBlue }]}>
-                Экспорт резервной копии
+                Полный бэкап данных
               </Text>
             </TouchableOpacity>
 
@@ -479,6 +620,14 @@ export const SettingsScreen: React.FC = () => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Import Shared Cashback Modal */}
+      <ImportCashbackModal
+        visible={isImportModalVisible}
+        banks={banks}
+        onClose={() => setIsImportModalVisible(false)}
+        onImportComplete={loadData}
+      />
     </View>
   );
 };
@@ -498,6 +647,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 16,
   },
+  aboutCard: {
+    borderColor: '#38BDF8',
+    borderWidth: 1.5,
+  },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -508,28 +661,66 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardDescription: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
     marginBottom: 14,
+  },
+  monthSelectorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  monthArrowBtn: {
+    padding: 4,
+  },
+  monthSelectorText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  operationsGrid: {
+    gap: 8,
+  },
+  operationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  primaryOperationBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  operationBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   themeToggleRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   themeOptionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   themeOptionBtnActive: {
     borderWidth: 2,
   },
   themeOptionText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   inputWrap: {
@@ -538,12 +729,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   apiInput: {
     flex: 1,
-    fontSize: 13,
     paddingVertical: 10,
+    fontSize: 13,
   },
   eyeBtn: {
     padding: 6,
@@ -551,110 +742,108 @@ const styles = StyleSheet.create({
   keyActionsRow: {
     flexDirection: 'row',
     gap: 10,
+    marginBottom: 10,
   },
   saveKeyBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
   },
   saveKeyBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
     color: '#0F172A',
+    fontWeight: '800',
+    fontSize: 13,
   },
   testKeyBtn: {
-    flex: 1.2,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
   },
   testKeyBtnText: {
-    fontSize: 13,
     fontWeight: '700',
+    fontSize: 13,
   },
   apiKeyHint: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
   },
   apiKeyHintText: {
     fontSize: 11,
-    flex: 1,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 4,
+    marginBottom: 12,
   },
   switchLabel: {
     fontSize: 14,
     fontWeight: '600',
   },
   testNotificationBtn: {
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
     borderWidth: 1,
   },
   testNotificationBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   backupActions: {
+    flexDirection: 'row',
     gap: 10,
-    marginTop: 4,
   },
   backupBtn: {
+    flex: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
     borderWidth: 1,
   },
   backupBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   resetBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
     borderWidth: 1,
   },
   resetBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  aboutCard: {
-    borderColor: '#EC4899',
+    fontSize: 12,
+    fontWeight: '700',
   },
   dedicationBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(236, 72, 153, 0.12)',
-    padding: 14,
-    borderRadius: 14,
+    backgroundColor: 'rgba(236, 72, 153, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 10,
     borderWidth: 1,
     borderColor: 'rgba(236, 72, 153, 0.3)',
-    marginBottom: 12,
   },
   dedicationText: {
-    fontSize: 14,
+    fontSize: 12,
+    color: '#EC4899',
     fontWeight: '700',
-    color: '#F472B6',
-    flex: 1,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   versionText: {
     fontSize: 11,

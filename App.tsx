@@ -57,7 +57,7 @@ function MainAppContent() {
       case 'cards':
         return <CardsManagementScreen />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen onNavigateToScan={() => setActiveTab('scan')} />;
       default:
         return (
           <DashboardScreen

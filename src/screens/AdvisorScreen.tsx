@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { Bank, MonthlyCashback, SmartMatchResult } from '../types';
 import { StorageService } from '../services/storage';
 import { CashbackMatcher } from '../services/matcher';
 import { Header } from '../components/Header';
+import { MonthSelector } from '../components/MonthSelector';
 import { POPULAR_SEARCH_QUERIES } from '../constants/categories';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
@@ -19,31 +21,39 @@ import {
   X,
   Trophy,
   Award,
-  CreditCard,
   Sparkles,
-  ArrowRight,
   TrendingUp,
+  Layers,
+  CheckCircle2,
 } from 'lucide-react-native';
 
 export const AdvisorScreen: React.FC = () => {
   const { colors } = useTheme();
   const [query, setQuery] = useState<string>('');
+  const [selectedBankFilter, setSelectedBankFilter] = useState<string>('all');
+  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [banks, setBanks] = useState<Bank[]>([]);
   const [cashbacks, setCashbacks] = useState<MonthlyCashback[]>([]);
   const [results, setResults] = useState<SmartMatchResult[]>([]);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const loadData = useCallback(async () => {
+    const allBanks = await StorageService.getBanks();
+    const currentCashbacks = await StorageService.getCashbacksForMonth(currentMonth, currentYear);
+    setBanks(allBanks);
+    setCashbacks(currentCashbacks);
+  }, [currentMonth, currentYear]);
 
   useEffect(() => {
-    const load = async () => {
-      const allBanks = await StorageService.getBanks();
-      const currentCashbacks = await StorageService.getCashbacksForMonth(currentMonth, currentYear);
-      setBanks(allBanks);
-      setCashbacks(currentCashbacks);
-    };
-    load();
-  }, []);
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (query.trim()) {
@@ -54,27 +64,57 @@ export const AdvisorScreen: React.FC = () => {
     }
   }, [query, banks, cashbacks]);
 
-  // Aggregate top offers for the month when query is empty
-  const allTopOffers = cashbacks
+  // Aggregate ALL active offers for the selected month (no slicing)
+  const allOffers = cashbacks
     .flatMap((cb) => {
       const bank = banks.find((b) => b.id === cb.bankId);
       if (!bank || !bank.isActive) return [];
-      return cb.items.map((item) => ({
+      return (cb.items || []).map((item) => ({
         bank,
         item,
       }));
     })
-    .sort((a, b) => b.item.percent - a.item.percent)
-    .slice(0, 8);
+    .sort((a, b) => {
+      if (b.item.percent !== a.item.percent) {
+        return b.item.percent - a.item.percent;
+      }
+      return a.bank.name.localeCompare(b.bank.name);
+    });
+
+  // Filter by bank if user taps a bank filter pill
+  const filteredOffers =
+    selectedBankFilter === 'all'
+      ? allOffers
+      : allOffers.filter((o) => o.bank.id === selectedBankFilter);
+
+  // Active banks that have cashbacks in this month
+  const activeBanksWithCashback = banks.filter((b) =>
+    cashbacks.some((c) => c.bankId === b.id && c.items && c.items.length > 0)
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Чем платить?"
-        subtitle={`Выгодные карты на ${MONTH_NAMES_RU[currentMonth]} ${currentYear}`}
+        subtitle={`Все кэшбэки на ${MONTH_NAMES_RU[currentMonth]} ${currentYear}`}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <MonthSelector
+        currentMonth={currentMonth}
+        currentYear={currentYear}
+        onSelectMonth={(m, y) => {
+          setCurrentMonth(m);
+          setCurrentYear(y);
+        }}
+      />
+
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentBlue} />
+        }
+      >
         {/* Search Bar */}
         <View
           style={[
@@ -85,7 +125,7 @@ export const AdvisorScreen: React.FC = () => {
           <Search size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Категория или магазин (АЗС, Кафе, Пятёрочка...)"
+            placeholder="Поиск магазина или категории (АЗС, Кафе, Пятёрочка...)"
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -117,7 +157,7 @@ export const AdvisorScreen: React.FC = () => {
                     borderColor: colors.accentBlue,
                   },
                 ]}
-                onPress={() => setQuery(item)}
+                onPress={() => setQuery(isSelected ? '' : item)}
                 activeOpacity={0.7}
               >
                 <Text
@@ -160,7 +200,7 @@ export const AdvisorScreen: React.FC = () => {
                 const isBest = index === 0;
                 return (
                   <View
-                    key={`${res.bank.id}-${res.item.id}`}
+                    key={`${res.bank.id}-${res.item.id}-${index}`}
                     style={[
                       styles.matchCard,
                       { backgroundColor: colors.card, borderColor: colors.cardBorder },
@@ -235,53 +275,203 @@ export const AdvisorScreen: React.FC = () => {
             )}
           </View>
         ) : (
-          /* Empty Search - Showcase Top Offers for the Month */
-          <View style={styles.topOffersSection}>
+          /* Empty Search - Showcase ALL Cashbacks for the Month */
+          <View style={styles.allOffersSection}>
+            {/* Header with Total Count */}
             <View style={styles.sectionHeader}>
-              <TrendingUp size={18} color={colors.accentBlue} style={{ marginRight: 6 }} />
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                Топ повышенных кэшбэков в этом месяце
+              <View style={styles.sectionHeaderTitleRow}>
+                <TrendingUp size={18} color={colors.accentBlue} style={{ marginRight: 6 }} />
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  Все активные кэшбэки на месяц ({allOffers.length})
+                </Text>
+              </View>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+                Отсортировано от самого высокого кэшбэка к базовому
               </Text>
             </View>
 
-            <View style={styles.topOffersGrid}>
-              {allTopOffers.map((offer, idx) => (
+            {/* Bank Filter Pills */}
+            {activeBanksWithCashback.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.bankFilterScroll}
+              >
                 <TouchableOpacity
-                  key={`${offer.bank.id}-${offer.item.id}-${idx}`}
                   style={[
-                    styles.topOfferCard,
+                    styles.bankFilterPill,
                     { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    selectedBankFilter === 'all' && [
+                      styles.bankFilterPillActive,
+                      { borderColor: colors.accent },
+                    ],
                   ]}
-                  onPress={() => setQuery(offer.item.category)}
+                  onPress={() => setSelectedBankFilter('all')}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.topOfferLeft}>
-                    <View
-                      style={[
-                        styles.bankMiniTag,
-                        { backgroundColor: offer.bank.primaryColor },
-                      ]}
-                    >
-                      <Text style={[styles.bankMiniTagText, { color: offer.bank.textColor }]}>
-                        {offer.bank.shortName}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[styles.topOfferCategory, { color: colors.textPrimary }]}
-                      numberOfLines={1}
-                    >
-                      {offer.item.category}
-                    </Text>
-                  </View>
-
-                  <View style={styles.topOfferRight}>
-                    <Text style={[styles.topOfferPercent, { color: colors.accentBlue }]}>
-                      {offer.item.percent}%
-                    </Text>
-                  </View>
+                  <Text
+                    style={[
+                      styles.bankFilterPillText,
+                      {
+                        color:
+                          selectedBankFilter === 'all'
+                            ? colors.accent
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    Все банки ({allOffers.length})
+                  </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+
+                {activeBanksWithCashback.map((bank) => {
+                  const count = allOffers.filter((o) => o.bank.id === bank.id).length;
+                  const isSelected = selectedBankFilter === bank.id;
+                  return (
+                    <TouchableOpacity
+                      key={bank.id}
+                      style={[
+                        styles.bankFilterPill,
+                        { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                        isSelected && [
+                          styles.bankFilterPillActive,
+                          { borderColor: bank.primaryColor },
+                        ],
+                      ]}
+                      onPress={() => setSelectedBankFilter(isSelected ? 'all' : bank.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.bankIndicator,
+                          { backgroundColor: bank.primaryColor, width: 7, height: 7 },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.bankFilterPillText,
+                          {
+                            color: isSelected ? colors.textPrimary : colors.textSecondary,
+                            fontWeight: isSelected ? '800' : '600',
+                          },
+                        ]}
+                      >
+                        {bank.shortName || bank.name} ({count})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Complete List of Cashbacks */}
+            {filteredOffers.length > 0 ? (
+              <View style={styles.offersList}>
+                {filteredOffers.map((offer, idx) => {
+                  const isHighPercent = offer.item.percent >= 10;
+                  const isMediumPercent = offer.item.percent >= 5 && offer.item.percent < 10;
+
+                  return (
+                    <TouchableOpacity
+                      key={`${offer.bank.id}-${offer.item.id}-${idx}`}
+                      style={[
+                        styles.offerItemCard,
+                        { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                        isHighPercent && [
+                          styles.highOfferCard,
+                          { borderColor: colors.accent },
+                        ],
+                      ]}
+                      onPress={() => setQuery(offer.item.category)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.offerItemLeft}>
+                        {/* Bank Badge */}
+                        <View
+                          style={[
+                            styles.bankBadge,
+                            { backgroundColor: offer.bank.primaryColor },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.bankBadgeText,
+                              { color: offer.bank.textColor },
+                            ]}
+                          >
+                            {offer.bank.shortName || offer.bank.name}
+                          </Text>
+                        </View>
+
+                        {/* Category and Condition Details */}
+                        <View style={styles.offerDetails}>
+                          <Text
+                            style={[styles.offerCategoryName, { color: colors.textPrimary }]}
+                          >
+                            {offer.item.category}
+                          </Text>
+                          {offer.item.note && (
+                            <Text
+                              style={[styles.offerNoteText, { color: colors.textMuted }]}
+                              numberOfLines={1}
+                            >
+                              {offer.item.note}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* Percentage Badge */}
+                      <View
+                        style={[
+                          styles.offerPercentBox,
+                          isHighPercent
+                            ? [styles.offerPercentBoxHigh, { backgroundColor: colors.accent }]
+                            : isMediumPercent
+                            ? [
+                                styles.offerPercentBoxMedium,
+                                { backgroundColor: 'rgba(56, 189, 248, 0.15)' },
+                              ]
+                            : [
+                                styles.offerPercentBoxNormal,
+                                { backgroundColor: colors.inputBackground },
+                              ],
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.offerPercentValue,
+                            {
+                              color: isHighPercent
+                                ? '#0F172A'
+                                : isMediumPercent
+                                ? colors.accentBlue
+                                : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {offer.item.percent}%
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.noOffersCard,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                ]}
+              >
+                <Text style={[styles.noOffersText, { color: colors.textPrimary }]}>
+                  На {MONTH_NAMES_RU[currentMonth]} {currentYear} кэшбэк пока не заполнен.
+                </Text>
+                <Text style={[styles.noOffersSub, { color: colors.textSecondary }]}>
+                  Добавьте кэшбэк в разделе «Кэшбэк» или отсканируйте скриншот через «Сканер».
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -298,7 +488,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 16,
   },
   searchBar: {
     flexDirection: 'row',
@@ -307,7 +496,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
-    marginBottom: 12,
+    marginTop: 8,
+    marginBottom: 10,
   },
   searchInput: {
     flex: 1,
@@ -319,7 +509,7 @@ const styles = StyleSheet.create({
   },
   chipsScroll: {
     gap: 8,
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   chip: {
     paddingHorizontal: 12,
@@ -336,17 +526,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   resultsContainer: {
-    marginTop: 8,
+    marginTop: 6,
   },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: 12,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
   },
   noResultsCard: {
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
+    marginTop: 8,
   },
   noResultsText: {
     fontSize: 14,
@@ -360,7 +554,7 @@ const styles = StyleSheet.create({
   matchCard: {
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: 10,
     overflow: 'hidden',
   },
   bestMatchCard: {
@@ -383,15 +577,15 @@ const styles = StyleSheet.create({
   cardMain: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 12,
   },
   rankCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   rankCircleGold: {
     backgroundColor: '#FFDD2D',
@@ -400,7 +594,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
   },
   rankNumber: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
   rankNumberGold: {
@@ -424,11 +618,11 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   bankTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   matchReason: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   matchNote: {
@@ -436,10 +630,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   percentBox: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    marginLeft: 10,
+    marginLeft: 8,
   },
   percentBoxGold: {
     backgroundColor: '#FFDD2D',
@@ -448,7 +642,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
   },
   percentValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
   percentValueGold: {
@@ -457,18 +651,39 @@ const styles = StyleSheet.create({
   percentValueNormal: {
     color: '#38BDF8',
   },
-  topOffersSection: {
-    marginTop: 8,
+  allOffersSection: {
+    marginTop: 4,
   },
   sectionHeader: {
+    marginBottom: 10,
+  },
+  sectionHeaderTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  topOffersGrid: {
+  bankFilterScroll: {
+    gap: 8,
+    paddingBottom: 12,
+  },
+  bankFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  bankFilterPillActive: {
+    borderWidth: 1.5,
+  },
+  bankFilterPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  offersList: {
     gap: 8,
   },
-  topOfferCard: {
+  offerItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -476,31 +691,63 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
   },
-  topOfferLeft: {
+  highOfferCard: {
+    borderWidth: 1.5,
+  },
+  offerItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  bankMiniTag: {
-    paddingHorizontal: 8,
+  bankBadge: {
+    paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
     marginRight: 8,
   },
-  bankMiniTagText: {
-    fontSize: 11,
-    fontWeight: '700',
+  bankBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
-  topOfferCategory: {
-    fontSize: 13,
-    fontWeight: '600',
+  offerDetails: {
     flex: 1,
   },
-  topOfferRight: {
+  offerCategoryName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  offerNoteText: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  offerPercentBox: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
     marginLeft: 8,
   },
-  topOfferPercent: {
-    fontSize: 14,
+  offerPercentBoxHigh: {},
+  offerPercentBoxMedium: {},
+  offerPercentBoxNormal: {},
+  offerPercentValue: {
+    fontSize: 13,
     fontWeight: '800',
+  },
+  noOffersCard: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  noOffersText: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  noOffersSub: {
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

@@ -80,6 +80,15 @@ export class NotificationService {
     }
   }
 
+  static async cancelMonthlyReminder(): Promise<void> {
+    if (Platform.OS === 'web' || !Notifications) return;
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch (e) {
+      console.warn('Failed to cancel notifications', e);
+    }
+  }
+
   static async sendTestNotification(): Promise<void> {
     if (Platform.OS === 'web' || !Notifications || (this.isExpoGo() && Platform.OS === 'android')) {
       alert('Уведомление: «💳 Новый месяц — новый кэшбэк! Не забудьте проверить категории в банках»');
