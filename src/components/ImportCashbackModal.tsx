@@ -67,12 +67,17 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
   const [targetYear, setTargetYear] = useState<number>(new Date().getFullYear());
   const [importTarget, setImportTarget] = useState<'shared' | 'my'>('shared');
   const [mergeMode, setMergeMode] = useState<'replace' | 'merge'>('replace');
+  const [partnerName, setPartnerName] = useState<string>('Партнер');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setRawText('');
       setParsedData(null);
+    } else {
+      StorageService.getSettings().then((s) => {
+        setPartnerName(s.partnerName || 'Партнер');
+      });
     }
   }, [visible]);
 
@@ -134,7 +139,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
     }
 
     const isShared = importTarget === 'shared';
-    const sharedByName = isShared ? 'Партнер' : undefined;
+    const sharedByName = isShared ? partnerName : undefined;
 
     try {
       if (parsedData.type === 'single_bank' && parsedData.bankId && parsedData.items) {
@@ -323,8 +328,9 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                       styles.targetToggleText,
                       { color: importTarget === 'shared' ? '#EC4899' : colors.textSecondary },
                     ]}
+                    numberOfLines={1}
                   >
-                    Карты партнера
+                    Карты: {partnerName}
                   </Text>
                 </TouchableOpacity>
 

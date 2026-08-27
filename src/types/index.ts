@@ -52,6 +52,7 @@ export interface AppSettings {
   enableMonthlyReminders: boolean;
   activeTheme: 'dark' | 'light' | 'system';
   widgetTheme?: 'dark' | 'light' | 'transparent';
+  partnerName?: string;
 }
 
 export interface ScanResult {

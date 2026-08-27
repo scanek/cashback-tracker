@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableMonthlyReminders: true,
   activeTheme: 'dark',
   widgetTheme: 'dark',
+  partnerName: 'Партнер',
 };
 
 const SAMPLE_CASHBACKS: MonthlyCashback[] = [

@@ -1,14 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bank, MonthlyCashback, CashbackItem } from '../types';
-import { Edit2, Plus, Trash2, CreditCard, Sparkles, AlertCircle, Share2, Heart } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
+import {
+  CreditCard,
+  Plus,
+  Edit2,
+  Trash2,
+  Share2,
+  Heart,
+} from 'lucide-react-native';
 
 interface BankCardProps {
   bank: Bank;
   cashback?: MonthlyCashback;
-  onEdit: () => void;
-  onAdd: () => void;
+  onAdd?: () => void;
+  onEdit?: () => void;
   onDelete?: () => void;
   onShare?: () => void;
 }
@@ -16,12 +23,12 @@ interface BankCardProps {
 export const BankCard: React.FC<BankCardProps> = ({
   bank,
   cashback,
-  onEdit,
   onAdd,
+  onEdit,
   onDelete,
   onShare,
 }) => {
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
   const hasItems = cashback && cashback.items && cashback.items.length > 0;
   const isShared = Boolean(cashback?.isShared);
 
@@ -38,12 +45,14 @@ export const BankCard: React.FC<BankCardProps> = ({
       {/* Top Bank Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: bank.primaryColor }]}>
         <View style={styles.bankInfo}>
-          <CreditCard size={20} color={bank.textColor} style={{ marginRight: 8 }} />
-          <Text style={[styles.bankName, { color: bank.textColor }]}>{bank.name}</Text>
+          <CreditCard size={18} color={bank.textColor} style={{ marginRight: 6 }} />
+          <Text style={[styles.bankName, { color: bank.textColor }]} numberOfLines={1}>
+            {bank.name}
+          </Text>
           {isShared && (
             <View style={styles.sharedTag}>
-              <Heart size={10} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 3 }} />
-              <Text style={styles.sharedTagText}>
+              <Heart size={9} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 3 }} />
+              <Text style={styles.sharedTagText} numberOfLines={1}>
                 {cashback?.sharedByName || 'Партнер'}
               </Text>
             </View>
@@ -59,23 +68,23 @@ export const BankCard: React.FC<BankCardProps> = ({
                   onPress={onShare}
                   activeOpacity={0.7}
                 >
-                  <Share2 size={14} color={bank.textColor} />
+                  <Share2 size={13} color={bank.textColor} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 6 }]}
+                style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 5 }]}
                 onPress={onEdit}
                 activeOpacity={0.7}
               >
-                <Edit2 size={14} color={bank.textColor} />
+                <Edit2 size={13} color={bank.textColor} />
               </TouchableOpacity>
               {onDelete && (
                 <TouchableOpacity
-                  style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 6 }]}
+                  style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 5 }]}
                   onPress={onDelete}
                   activeOpacity={0.7}
                 >
-                  <Trash2 size={14} color={bank.textColor} />
+                  <Trash2 size={13} color={bank.textColor} />
                 </TouchableOpacity>
               )}
             </>
@@ -85,7 +94,7 @@ export const BankCard: React.FC<BankCardProps> = ({
               onPress={onAdd}
               activeOpacity={0.7}
             >
-              <Plus size={16} color={bank.textColor} />
+              <Plus size={15} color={bank.textColor} />
             </TouchableOpacity>
           )}
         </View>
@@ -96,32 +105,39 @@ export const BankCard: React.FC<BankCardProps> = ({
         {hasItems ? (
           <View style={styles.categoriesGrid}>
             {cashback.items.map((item: CashbackItem, index: number) => {
-              const isHighRate = item.percent >= 10;
+              const isHigh = item.percent >= 10;
+              const isMedium = item.percent >= 5 && item.percent < 10;
+
               return (
-                <View key={item.id || index.toString()} style={styles.categoryRow}>
+                <View key={item.id || index} style={styles.categoryRow}>
                   <View style={styles.categoryLeft}>
                     <View
                       style={[
                         styles.percentBadge,
                         {
-                          backgroundColor: isHighRate
-                            ? 'rgba(239, 68, 68, 0.15)'
-                            : colors.badgeBackground,
-                          borderColor: isHighRate ? '#EF4444' : colors.accentBlue,
+                          backgroundColor: isHigh
+                            ? colors.accent
+                            : isMedium
+                            ? 'rgba(56, 189, 248, 0.12)'
+                            : colors.inputBackground,
+                          borderColor: isHigh
+                            ? colors.accent
+                            : isMedium
+                            ? 'rgba(56, 189, 248, 0.3)'
+                            : colors.inputBorder,
                         },
                       ]}
                     >
-                      {isHighRate && (
-                        <Sparkles
-                          size={10}
-                          color="#EF4444"
-                          style={{ marginRight: 2 }}
-                        />
-                      )}
                       <Text
                         style={[
                           styles.percentText,
-                          { color: isHighRate ? '#EF4444' : colors.accentBlue },
+                          {
+                            color: isHigh
+                              ? '#0F172A'
+                              : isMedium
+                              ? colors.accentBlue
+                              : colors.textSecondary,
+                          },
                         ]}
                       >
                         {item.percent}%
@@ -129,11 +145,17 @@ export const BankCard: React.FC<BankCardProps> = ({
                     </View>
 
                     <View style={styles.categoryDetails}>
-                      <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>
+                      <Text
+                        style={[styles.categoryTitle, { color: colors.textPrimary }]}
+                        numberOfLines={2}
+                      >
                         {item.category}
                       </Text>
                       {item.note ? (
-                        <Text style={[styles.categoryNote, { color: colors.textSecondary }]}>
+                        <Text
+                          style={[styles.categoryNote, { color: colors.textMuted }]}
+                          numberOfLines={1}
+                        >
                           {item.note}
                         </Text>
                       ) : null}
@@ -144,18 +166,29 @@ export const BankCard: React.FC<BankCardProps> = ({
             })}
           </View>
         ) : (
-          <TouchableOpacity style={styles.emptyState} onPress={onAdd} activeOpacity={0.7}>
-            <AlertCircle size={20} color={colors.textMuted} style={{ marginBottom: 6 }} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Категории на этот месяц не занесены
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+              Категории на этот месяц не выбраны
             </Text>
-            <View style={[styles.addCategoryBtn, { borderColor: colors.accentBlue }]}>
-              <Plus size={14} color={colors.accentBlue} style={{ marginRight: 4 }} />
-              <Text style={[styles.addCategoryBtnText, { color: colors.accentBlue }]}>
-                Добавить кэшбэк
-              </Text>
-            </View>
-          </TouchableOpacity>
+            {onAdd && (
+              <TouchableOpacity
+                style={[
+                  styles.addCategoryBtn,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.cardBorder,
+                  },
+                ]}
+                onPress={onAdd}
+                activeOpacity={0.7}
+              >
+                <Plus size={14} color={colors.accentBlue} style={{ marginRight: 4 }} />
+                <Text style={[styles.addCategoryBtnText, { color: colors.accentBlue }]}>
+                  Выбрать кэшбэк
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
     </View>
@@ -165,44 +198,43 @@ export const BankCard: React.FC<BankCardProps> = ({
 const styles = StyleSheet.create({
   cardWrapper: {
     borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    overflow: 'hidden',
+    marginBottom: 12,
   },
   headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   bankInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    flexWrap: 'wrap',
+    marginRight: 6,
   },
   bankName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
+    flexShrink: 1,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   miniButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   body: {
-    padding: 14,
+    padding: 12,
   },
   categoriesGrid: {
     gap: 8,
@@ -220,23 +252,23 @@ const styles = StyleSheet.create({
   percentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
-    minWidth: 46,
+    minWidth: 44,
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 9,
   },
   percentText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   categoryDetails: {
     flex: 1,
   },
   categoryTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   categoryNote: {
@@ -245,10 +277,10 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     marginBottom: 8,
   },
   addCategoryBtn: {
@@ -267,14 +299,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EC4899',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+    marginLeft: 5,
+    flexShrink: 0,
   },
   sharedTagText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
   },
 });

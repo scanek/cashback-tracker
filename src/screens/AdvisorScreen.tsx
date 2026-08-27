@@ -40,12 +40,15 @@ export const AdvisorScreen: React.FC = () => {
   const [cashbacks, setCashbacks] = useState<MonthlyCashback[]>([]);
   const [results, setResults] = useState<SmartMatchResult[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [partnerName, setPartnerName] = useState<string>('Партнер');
 
   const loadData = useCallback(async () => {
     const allBanks = await StorageService.getBanks();
     const currentCashbacks = await StorageService.getCashbacksForMonth(currentMonth, currentYear);
+    const settings = await StorageService.getSettings();
     setBanks(allBanks);
     setCashbacks(currentCashbacks);
+    setPartnerName(settings.partnerName || 'Партнер');
   }, [currentMonth, currentYear]);
 
   useEffect(() => {
@@ -213,7 +216,7 @@ export const AdvisorScreen: React.FC = () => {
                 ownerFilter === 'shared' && styles.ownerFilterTextActive,
               ]}
             >
-              Партнер ({sharedCount})
+              {partnerName} ({sharedCount})
             </Text>
           </TouchableOpacity>
         </View>

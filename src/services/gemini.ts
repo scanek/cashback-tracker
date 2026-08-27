@@ -1,7 +1,9 @@
 import { ScanResult } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
 
-const SYSTEM_PROMPT = `
+const getSystemPrompt = () => {
+  const currentYear = new Date().getFullYear();
+  return `
 Ты — интеллектуальный ассистент для распознавания категорий кэшбэка со скриншотов банковских приложений (Россия).
 Твоя задача — внимательно проанализировать изображение скриншота экрана выбора кэшбэка в банковском приложении и извлечь структурированные данные.
 
@@ -16,7 +18,8 @@ const SYSTEM_PROMPT = `
 
 Правила извлечения:
 1. Определи банк (название).
-2. Определи месяц (число от 0 до 11, где 0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год. Если месяц на скриншоте не указан явно, укажи текущий месяц.
+2. Определи месяц (число от 0 до 11, где 0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год.
+ВАЖНО ПРО ГОД: Текущий реальный год — ${currentYear}. Если год на скриншоте явно не указан (например, написано просто "Август" или "Кэшбэк на месяц"), ОБЯЗАТЕЛЬНО укажи year: ${currentYear} (НЕ 2024!).
 3. Извлеки все выбранные или доступные категории кэшбэка с их процентами (например, 5%, 1%, 10%, 20%).
 4. Если есть примечания (например, "до 3000 ₽", "от 1000 ₽", "в партнерских магазинах"), запиши их в поле note.
 
@@ -24,7 +27,7 @@ const SYSTEM_PROMPT = `
 {
   "bankName": "Т-Банк",
   "month": 7,
-  "year": 2026,
+  "year": ${currentYear},
   "items": [
     {
       "category": "Супермаркеты",
@@ -38,6 +41,7 @@ const SYSTEM_PROMPT = `
   ]
 }
 `;
+};
 
 export const EMBEDDED_GEMINI_API_KEY = 'AQ.Ab8RN6KLsZuKmY8EAtHjsWIDDBG0vAQvNtTPaChwQyNFPjbpKg';
 
@@ -118,15 +122,13 @@ export class GeminiVisionService {
       if (check.success && check.modelName) {
         targetModel = check.modelName.replace(/^models\//, '');
       }
-    } catch (e) {
-      console.warn('Model discovery warning:', e);
+    } catch {
+      // Fall back to default candidate list
     }
 
     const modelsToTry = [
       targetModel,
       'gemini-3.6-flash',
-      'gemini-3.0-flash',
-      'gemini-3-flash',
       'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-2.0-flash-exp',
@@ -167,6 +169,7 @@ export class GeminiVisionService {
       .replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/i, '')
       .replace(/[\r\n\s]/g, '');
     const cleanMime = mimeType.replace(/;.*$/, '').trim() || 'image/jpeg';
+    const currentYear = new Date().getFullYear();
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
@@ -180,7 +183,7 @@ export class GeminiVisionService {
           {
             parts: [
               {
-                text: SYSTEM_PROMPT,
+                text: getSystemPrompt(),
               },
               {
                 inlineData: {
@@ -231,11 +234,16 @@ export class GeminiVisionService {
       if (foundIdx >= 0) jsMonth = foundIdx;
     }
 
+    const detectedYear =
+      typeof parsed.year === 'number' && parsed.year >= currentYear - 1
+        ? parsed.year
+        : currentYear;
+
     return {
       bankName: parsed.bankName || 'Неизвестный банк',
       bankId: matchedBank?.id || 'custom',
       month: jsMonth,
-      year: typeof parsed.year === 'number' && parsed.year >= 2020 ? parsed.year : new Date().getFullYear(),
+      year: detectedYear,
       items: Array.isArray(parsed.items) ? parsed.items : [],
       confidence: 0.95,
       rawText: rawText,

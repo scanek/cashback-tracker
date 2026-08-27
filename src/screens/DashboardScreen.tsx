@@ -9,30 +9,31 @@ import {
 } from 'react-native';
 import { Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
+import { ShareService } from '../services/share';
 import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
 import { BankCard } from '../components/BankCard';
 import { AddCashbackModal } from '../components/AddCashbackModal';
-import { ShareService } from '../services/share';
 import { confirmDialog } from '../utils/alert';
 import { useTheme } from '../context/ThemeContext';
 import {
+  Percent,
+  CheckCircle2,
   Sparkles,
-  TrendingUp,
-  Layers,
+  CreditCard,
   User,
   Heart,
   Users,
 } from 'lucide-react-native';
 
 interface DashboardScreenProps {
-  onNavigateToScan?: () => void;
   onNavigateToAdvisor?: () => void;
+  onNavigateToScan?: () => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
-  onNavigateToScan,
   onNavigateToAdvisor,
+  onNavigateToScan,
 }) => {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
@@ -40,19 +41,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [banks, setBanks] = useState<Bank[]>([]);
   const [cashbacks, setCashbacks] = useState<MonthlyCashback[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [partnerName, setPartnerName] = useState<string>('Партнер');
+
+  // Tab filter: 'my' = my cards, 'shared' = partner cards, 'all' = combined
   const [ownerFilter, setOwnerFilter] = useState<'my' | 'shared' | 'all'>('my');
 
-  // Modal State for Manual Add/Edit
+  // Modal State
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
-  const [editingCashback, setEditingCashback] = useState<MonthlyCashback | undefined>(undefined);
+  const [editingCashback, setEditingCashback] = useState<MonthlyCashback | null>(null);
 
   const loadData = useCallback(async () => {
-    const allBanks = await StorageService.getBanks();
-    const activeBanks = allBanks.filter((b) => b.isActive);
-    const monthCashbacks = await StorageService.getCashbacksForMonth(currentMonth, currentYear);
-    setBanks(activeBanks);
-    setCashbacks(monthCashbacks);
+    const activeBanks = await StorageService.getBanks();
+    const currentCashbacks = await StorageService.getCashbacksForMonth(currentMonth, currentYear);
+    const settings = await StorageService.getSettings();
+    setBanks(activeBanks.filter((b) => b.isActive));
+    setCashbacks(currentCashbacks);
+    setPartnerName(settings.partnerName || 'Партнер');
   }, [currentMonth, currentYear]);
 
   useEffect(() => {
@@ -67,7 +72,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const handleOpenAdd = (bank: Bank, existingCb?: MonthlyCashback) => {
     setSelectedBank(bank);
-    setEditingCashback(existingCb);
+    setEditingCashback(existingCb || null);
     setModalVisible(true);
   };
 
@@ -76,7 +81,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     await StorageService.saveMonthlyCashback({
       ...cashback,
       isShared,
-      sharedByName: isShared ? editingCashback?.sharedByName || 'Партнер' : undefined,
+      sharedByName: isShared ? editingCashback?.sharedByName || partnerName : undefined,
     });
     await loadData();
   };
@@ -137,7 +142,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }}
       />
 
-      {/* Owner Tab Switcher (My Cards vs Shared Cards vs All) */}
+      {/* Owner Tab Switcher (My Cards vs Partner Cards vs All) */}
       <View style={styles.tabSwitcherContainer}>
         <View
           style={[
@@ -157,9 +162,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             activeOpacity={0.7}
           >
             <User
-              size={14}
+              size={13}
               color={ownerFilter === 'my' ? colors.accentBlue : colors.textMuted}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             />
             <Text
               style={[
@@ -167,8 +172,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 { color: ownerFilter === 'my' ? colors.accentBlue : colors.textSecondary },
                 ownerFilter === 'my' && styles.tabBtnTextActive,
               ]}
+              numberOfLines={1}
             >
-              Мои карты ({myCashbacksCount})
+              Мои ({myCashbacksCount})
             </Text>
           </TouchableOpacity>
 
@@ -184,10 +190,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             activeOpacity={0.7}
           >
             <Heart
-              size={14}
+              size={13}
               color={ownerFilter === 'shared' ? '#EC4899' : colors.textMuted}
               fill={ownerFilter === 'shared' ? '#EC4899' : 'transparent'}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             />
             <Text
               style={[
@@ -195,8 +201,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 { color: ownerFilter === 'shared' ? '#EC4899' : colors.textSecondary },
                 ownerFilter === 'shared' && styles.tabBtnTextActive,
               ]}
+              numberOfLines={1}
             >
-              Карты партнера ({sharedCashbacksCount})
+              {partnerName} ({sharedCashbacksCount})
             </Text>
           </TouchableOpacity>
 
@@ -212,9 +219,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             activeOpacity={0.7}
           >
             <Users
-              size={14}
+              size={13}
               color={ownerFilter === 'all' ? colors.accent : colors.textMuted}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             />
             <Text
               style={[
@@ -222,6 +229,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 { color: ownerFilter === 'all' ? colors.accent : colors.textSecondary },
                 ownerFilter === 'all' && styles.tabBtnTextActive,
               ]}
+              numberOfLines={1}
             >
               Все ({cashbacks.length})
             </Text>
@@ -244,13 +252,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
           >
-            <View style={[styles.statIconWrap, { backgroundColor: colors.badgeBackground }]}>
-              <Layers size={16} color={colors.accentBlue} />
-            </View>
+            <CheckCircle2 size={16} color={colors.accentGreen} />
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>
               {displayedCashbacks.length}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Карт заполнено</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Карт
+            </Text>
           </View>
 
           <View
@@ -259,11 +267,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
           >
-            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-              <TrendingUp size={16} color="#EF4444" />
-            </View>
-            <Text style={[styles.statValue, { color: '#EF4444' }]}>до {maxPercent}%</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Макс. кэшбэк</Text>
+            <Percent size={16} color={colors.accent} />
+            <Text style={[styles.statValue, { color: colors.accent }]}>
+              {maxPercent}%
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Макс. кэшбэк
+            </Text>
           </View>
 
           <View
@@ -272,20 +282,40 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
           >
-            <View style={[styles.statIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
-              <Sparkles size={16} color="#10B981" />
-            </View>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>{totalCategories}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Категорий активно</Text>
+            <CreditCard size={16} color={colors.accentBlue} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              {totalCategories}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Категорий
+            </Text>
           </View>
         </View>
 
-        {/* Bank Cards List */}
-        <View style={styles.banksList}>
-          {ownerFilter === 'all' ? (
-            /* All cards: list each bank & its personal and shared variants */
-            cashbacks.length > 0 ? (
-              cashbacks.map((cb) => {
+        {/* Bank List based on Filter */}
+        <View style={styles.bankList}>
+          {ownerFilter === 'my' ? (
+            /* My personal cards: show all active banks */
+            banks.map((bank) => {
+              const myCb = cashbacks.find(
+                (c) => c.bankId === bank.id && !c.isShared
+              );
+              return (
+                <BankCard
+                  key={`${bank.id}-my`}
+                  bank={bank}
+                  cashback={myCb}
+                  onAdd={() => handleOpenAdd(bank, myCb)}
+                  onEdit={() => handleOpenAdd(bank, myCb)}
+                  onDelete={myCb ? () => handleDeleteCashback(bank.id, false) : undefined}
+                  onShare={myCb ? () => ShareService.shareBankCashback(bank, myCb) : undefined}
+                />
+              );
+            })
+          ) : ownerFilter === 'all' ? (
+            /* Combined view: show all cashbacks present in month */
+            displayedCashbacks.length > 0 ? (
+              displayedCashbacks.map((cb) => {
                 const bank = banks.find((b) => b.id === cb.bankId);
                 if (!bank) return null;
                 return (
@@ -312,8 +342,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </Text>
               </View>
             )
-          ) : ownerFilter === 'shared' ? (
-            /* Shared cards only */
+          ) : (
+            /* Partner cards only */
             sharedCashbacksCount > 0 ? (
               cashbacks
                 .filter((c) => c.isShared)
@@ -339,51 +369,33 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   { backgroundColor: colors.card, borderColor: colors.cardBorder },
                 ]}
               >
-                <Heart size={28} color="#EC4899" fill="rgba(236, 72, 153, 0.2)" style={{ marginBottom: 8 }} />
+                <Heart size={26} color="#EC4899" fill="rgba(236, 72, 153, 0.2)" style={{ marginBottom: 8 }} />
                 <Text style={[styles.emptyStateText, { color: colors.textPrimary }]}>
-                  Пока нет добавленных карт партнера
+                  Пока нет карт ({partnerName})
                 </Text>
                 <Text style={[styles.emptyStateSub, { color: colors.textSecondary }]}>
                   Нажмите «Импорт» в Настройках, чтобы добавить категории партнера, или делитесь своими картами!
                 </Text>
               </View>
             )
-          ) : (
-            /* My personal cards */
-            banks.map((bank) => {
-              const cb = cashbacks.find((c) => c.bankId === bank.id && !c.isShared);
-              return (
-                <BankCard
-                  key={`${bank.id}-my`}
-                  bank={bank}
-                  cashback={cb}
-                  onAdd={() => handleOpenAdd(bank)}
-                  onEdit={() => handleOpenAdd(bank, cb)}
-                  onDelete={cb ? () => handleDeleteCashback(bank.id, false) : undefined}
-                  onShare={
-                    cb && cb.items && cb.items.length > 0
-                      ? () => ShareService.shareBankCashback(bank, cb)
-                      : undefined
-                  }
-                />
-              );
-            })
           )}
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Manual Add/Edit Modal */}
-      <AddCashbackModal
-        visible={modalVisible}
-        bank={selectedBank}
-        month={currentMonth}
-        year={currentYear}
-        initialCashback={editingCashback}
-        onClose={() => setModalVisible(false)}
-        onSave={handleSaveCashback}
-      />
+      {/* Add / Edit Cashback Modal */}
+      {selectedBank && (
+        <AddCashbackModal
+          visible={modalVisible}
+          bank={selectedBank}
+          month={currentMonth}
+          year={currentYear}
+          initialCashback={editingCashback || undefined}
+          onClose={() => setModalVisible(false)}
+          onSave={handleSaveCashback}
+        />
+      )}
     </View>
   );
 };
@@ -393,25 +405,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabSwitcherContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingHorizontal: 14,
+    paddingTop: 2,
     paddingBottom: 4,
   },
   tabSwitcher: {
     flexDirection: 'row',
-    borderRadius: 14,
-    padding: 4,
+    borderRadius: 12,
+    padding: 3,
     borderWidth: 1,
-    gap: 4,
+    gap: 3,
   },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 2,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -421,65 +433,57 @@ const styles = StyleSheet.create({
   tabBtnText: {
     fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
   },
   tabBtnTextActive: {
     fontWeight: '800',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginVertical: 10,
+    gap: 8,
   },
   statCard: {
     flex: 1,
     borderRadius: 14,
-    padding: 12,
-    marginHorizontal: 3,
+    padding: 10,
     alignItems: 'center',
     borderWidth: 1,
   },
-  statIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
   statValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    marginBottom: 2,
+    marginTop: 2,
   },
   statLabel: {
     fontSize: 10,
+    marginTop: 1,
     textAlign: 'center',
   },
-  banksList: {
-    marginBottom: 16,
+  bankList: {
     marginTop: 4,
   },
   emptyStateCard: {
-    padding: 24,
+    padding: 20,
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 12,
   },
   emptyStateText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    textAlign: 'center',
     marginBottom: 4,
+    textAlign: 'center',
   },
   emptyStateSub: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 17,
+    lineHeight: 16,
   },
 });

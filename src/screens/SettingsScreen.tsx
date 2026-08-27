@@ -46,6 +46,7 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  UserCheck,
 } from 'lucide-react-native';
 import { WidgetThemeMode } from '../widgets/CashbackWidget';
 import { WidgetService } from '../services/widget';
@@ -63,6 +64,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [testingKey, setTestingKey] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [widgetTheme, setWidgetTheme] = useState<WidgetThemeMode>('dark');
+  const [partnerName, setPartnerName] = useState<string>('Партнер');
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   // Month state for sharing / export
@@ -78,6 +80,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setSettings(s);
     setApiKey(s.geminiApiKey || '');
     setNotificationsEnabled(s.enableMonthlyReminders);
+    setPartnerName(s.partnerName || 'Партнер');
     if (s.widgetTheme) {
       setWidgetTheme(s.widgetTheme as WidgetThemeMode);
     }
@@ -120,6 +123,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const clean = GeminiVisionService.sanitizeApiKey(apiKey);
     await StorageService.saveSettings({ geminiApiKey: clean });
     Alert.alert('Сохранено', 'Gemini API ключ сохранен!');
+  };
+
+  const handleSavePartnerName = async () => {
+    const clean = partnerName.trim() || 'Партнер';
+    setPartnerName(clean);
+    await StorageService.saveSettings({ partnerName: clean });
+    Alert.alert('Сохранено', `Название партнера сохранено: «${clean}»`);
   };
 
   const handleTestApiKey = async () => {
@@ -352,6 +362,50 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Partner Name Customization Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: '#EC4899' },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <Heart size={18} color="#EC4899" fill="#EC4899" style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Название вкладки партнера
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Задайте собственное имя для карт партнера (например: «Карты Саши», «Саша», «Светик», «Жена»).
+          </Text>
+
+          <View
+            style={[
+              styles.inputWrap,
+              { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+            ]}
+          >
+            <TextInput
+              style={[styles.apiInput, { color: colors.textPrimary }]}
+              placeholder="Например: Карты Саши или Светик"
+              placeholderTextColor={colors.textMuted}
+              value={partnerName}
+              onChangeText={setPartnerName}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.saveKeyBtn, { backgroundColor: '#EC4899' }]}
+            onPress={handleSavePartnerName}
+            activeOpacity={0.8}
+          >
+            <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={[styles.saveKeyBtnText, { color: '#FFFFFF' }]}>
+              Сохранить название
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Theme Switcher Card */}
@@ -717,7 +771,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
 
           <Text style={[styles.versionText, { color: colors.textMuted }]}>
-            Версия 1.3.0 (Release Build) • Автор: Александр Щеголев
+            Версия 1.4.0 (Release Build) • Автор: Александр Щеголев
           </Text>
         </View>
 
