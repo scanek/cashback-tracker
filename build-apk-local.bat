@@ -22,6 +22,10 @@ if "%ANDROID_HOME%"=="" (
     )
 )
 
+if "%GRADLE_USER_HOME%"=="" (
+    set "GRADLE_USER_HOME=C:\.gradle"
+)
+
 echo [1/4] Проверка окружения...
 if "%ANDROID_HOME%"=="" (
     echo [!] ПРЕДУПРЕЖДЕНИЕ: Переменная ANDROID_HOME не найдена.

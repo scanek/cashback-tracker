@@ -32,6 +32,10 @@ if (!androidHome || !fs.existsSync(androidHome)) {
   }
 }
 
+if (!process.env.GRADLE_USER_HOME) {
+  process.env.GRADLE_USER_HOME = 'C:\\.gradle';
+}
+
 console.log('[1/4] Проверка окружения...');
 console.log(`  Java JDK:     ${javaHome || 'Не найдена (будет использована системная java)'}`);
 if (androidHome && fs.existsSync(androidHome)) {
