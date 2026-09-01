@@ -178,6 +178,25 @@ const server = http.createServer(async (req, res) => {
     const pathname = url.pathname;
 
     try {
+      // 0. Root Welcome / Status
+      if (req.method === 'GET' && (pathname === '/' || pathname === '')) {
+        return sendJson(200, {
+          status: 'ok',
+          message: '🚀 Cashback Hub Cloud Sync & Vision Server is running!',
+          version: '2.0.0',
+          totalUsers: Object.keys(db.users).length,
+          webClientPort: 8085,
+          endpoints: {
+            health: '/api/health',
+            syncPull: 'POST /api/sync/pull',
+            syncPush: 'POST /api/sync/push',
+            pairDevice: 'POST /api/auth/pair',
+            visionScan: 'POST /api/scan/vision'
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       // 1. Health Check
       if (req.method === 'GET' && pathname === '/api/health') {
         return sendJson(200, {
