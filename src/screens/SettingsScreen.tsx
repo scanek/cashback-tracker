@@ -20,6 +20,7 @@ import { Header } from '../components/Header';
 import { ImportCashbackModal } from '../components/ImportCashbackModal';
 import { PairDeviceModal } from '../components/PairDeviceModal';
 import { SyncService } from '../services/sync';
+import { PwaService } from '../services/pwa';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
 import * as DocumentPicker from 'expo-document-picker';
@@ -361,6 +362,67 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <Text style={styles.serverUrlSaveBtnText}>Сохранить</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Mobile App & PWA Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <Smartphone size={18} color="#38BDF8" style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Мобильное приложение (PWA & APK)
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Установите приложение на телефон для работы на весь экран без адресной строки браузера и с полной поддержкой офлайн-режима.
+          </Text>
+
+          <View style={styles.syncBtnRow}>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                style={[styles.pairDeviceBtn, { backgroundColor: '#38BDF8' }]}
+                onPress={() => PwaService.promptInstall()}
+                activeOpacity={0.8}
+              >
+                <Download size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                <Text style={styles.pairDeviceBtnText}>Установить на телефон (PWA)</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.manualSyncBtn,
+                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+              ]}
+              onPress={() => {
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.open('https://github.com/scanek/cashback-tracker/releases', '_blank');
+                } else {
+                  Alert.alert(
+                    'Android APK',
+                    'Автономный файл Мои_Кэшбеки.apk собирается скриптом build-apk-local.bat или доступен в GitHub Releases.'
+                  );
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <ExternalLink size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.manualSyncBtnText, { color: colors.accentBlue }]}>
+                Скачать APK (.apk)
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.infoBox, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, marginTop: 12 }]}>
+            <Info size={16} color={colors.accent} style={{ marginRight: 8, marginTop: 2 }} />
+            <Text style={[styles.infoBoxText, { color: colors.textSecondary }]}>
+              💡 <Text style={{ fontWeight: '700', color: colors.textPrimary }}>Как убрать строку браузера:</Text> В Chrome на телефоне нажмите меню (три точки) ➔ «Установить приложение» ➔ открывайте с иконки на главном экране.
+            </Text>
           </View>
         </View>
 
@@ -1207,5 +1269,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  infoBoxText: {
+    fontSize: 12,
+    lineHeight: 17,
+    flex: 1,
   },
 });
