@@ -1,4 +1,18 @@
 services:
+  cashback-hub-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: cashback-hub-server
+    restart: always
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server/data:/app/data
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+
   cashback-hub-web:
     build:
       context: .
@@ -9,3 +23,5 @@ services:
       - "${PORT:-8085}:80"
     environment:
       - NODE_ENV=production
+    depends_on:
+      - cashback-hub-server

@@ -18,6 +18,8 @@ import { ShareService } from '../services/share';
 import { confirmDialog } from '../utils/alert';
 import { Header } from '../components/Header';
 import { ImportCashbackModal } from '../components/ImportCashbackModal';
+import { PairDeviceModal } from '../components/PairDeviceModal';
+import { SyncService } from '../services/sync';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
 import * as DocumentPicker from 'expo-document-picker';
@@ -47,6 +49,10 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCheck,
+  Cloud,
+  Smartphone,
+  Copy,
+  ArrowRight,
 } from 'lucide-react-native';
 import { WidgetThemeMode } from '../widgets/CashbackWidget';
 import { WidgetService } from '../services/widget';
@@ -66,6 +72,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [widgetTheme, setWidgetTheme] = useState<WidgetThemeMode>('dark');
   const [partnerName, setPartnerName] = useState<string>('Партнер');
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [syncKey, setSyncKey] = useState<string>('');
+  const [serverUrl, setServerUrl] = useState<string>('');
+  const [isPairModalVisible, setIsPairModalVisible] = useState<boolean>(false);
+  const [syncingNow, setSyncingNow] = useState<boolean>(false);
 
   // Month state for sharing / export
   const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth());
@@ -84,6 +94,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     if (s.widgetTheme) {
       setWidgetTheme(s.widgetTheme as WidgetThemeMode);
     }
+
+    const key = await SyncService.getSyncKey();
+    const sUrl = await SyncService.getServerUrl();
+    setSyncKey(key);
+    setServerUrl(sUrl);
 
     const allBanks = await StorageService.getBanks();
     const cbs = await StorageService.getCashbacksForMonth(activeMonth, activeYear);
@@ -169,6 +184,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       },
       'Сбросить'
     );
+  };
+
+  const handleSaveServerUrl = async () => {
+    const clean = serverUrl.trim();
+    await StorageService.saveSettings({ syncServerUrl: clean });
+    Alert.alert('Сохранено', `Адрес сервера синхронизации сохранен: ${clean}`);
+  };
+
+  const handleManualSync = async () => {
+    setSyncingNow(true);
+    const success = await SyncService.performSync();
+    setSyncingNow(false);
+    if (success) {
+      await loadData();
+      Alert.alert('Синхронизировано', 'Данные успешно обновлены из облака!');
+    } else {
+      Alert.alert('Офлайн', 'Не удалось связаться с сервером. Проверьте адрес сервера и интернет.');
+    }
   };
 
   const handleExportBackup = async () => {
@@ -261,6 +294,76 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <Header title="Настройки" subtitle="Параметры темы, AI, импорта и экспорта" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Cloud Sync Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: '#3B82F6', borderWidth: 1.5 },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <Cloud size={18} color="#60A5FA" style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Облачная синхронизация (Web ↔ Телефон)
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Мгновенный обмен кэшбэками между браузером на компьютере и мобильным приложением.
+          </Text>
+
+          <View style={[styles.syncKeyBox, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+            <Text style={[styles.syncKeyLabel, { color: colors.textSecondary }]}>
+              Ваш синхро-код устройства:
+            </Text>
+            <Text style={[styles.syncKeyVal, { color: colors.accent }]}>
+              {syncKey || 'Загрузка...'}
+            </Text>
+          </View>
+
+          <View style={styles.syncBtnRow}>
+            <TouchableOpacity
+              style={[styles.pairDeviceBtn, { backgroundColor: colors.accent }]}
+              onPress={() => setIsPairModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Smartphone size={16} color="#0F172A" style={{ marginRight: 6 }} />
+              <Text style={styles.pairDeviceBtnText}>Связать с другим устройством</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.manualSyncBtn, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+              onPress={handleManualSync}
+              disabled={syncingNow}
+              activeOpacity={0.8}
+            >
+              <RefreshCw size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.manualSyncBtnText, { color: colors.accentBlue }]}>
+                {syncingNow ? 'Синхронизация...' : 'Синхронизировать'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Server URL Config */}
+          <View style={styles.serverUrlRow}>
+            <TextInput
+              style={[styles.serverUrlInput, { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.inputBorder }]}
+              placeholder="Адрес сервера: http://localhost:4000"
+              placeholderTextColor={colors.textMuted}
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              style={[styles.serverUrlSaveBtn, { backgroundColor: colors.accentBlue }]}
+              onPress={handleSaveServerUrl}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.serverUrlSaveBtnText}>Сохранить</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Operations & Sharing Card */}
         <View
           style={[
@@ -785,6 +888,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onClose={() => setIsImportModalVisible(false)}
         onImportComplete={loadData}
       />
+
+      {/* Cloud Sync & Pair Device Modal */}
+      <PairDeviceModal
+        visible={isPairModalVisible}
+        onClose={() => setIsPairModalVisible(false)}
+        onSuccess={loadData}
+      />
     </View>
   );
 };
@@ -1023,5 +1133,79 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     marginTop: 4,
+  },
+  syncKeyBox: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  syncKeyLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  syncKeyVal: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  syncBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  pairDeviceBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  pairDeviceBtnText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  manualSyncBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  manualSyncBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  serverUrlRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  serverUrlInput: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    fontSize: 12,
+  },
+  serverUrlSaveBtn: {
+    paddingHorizontal: 12,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serverUrlSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

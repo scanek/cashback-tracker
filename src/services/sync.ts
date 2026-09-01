@@ -1,0 +1,212 @@
+import { Bank, MonthlyCashback, AppSettings, SyncStatusState } from '../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+const STORAGE_KEYS = {
+  BANKS: '@cashback_hub_banks_v1',
+  CASHBACKS: '@cashback_hub_cashbacks_v1',
+  SETTINGS: '@cashback_hub_settings_v1',
+  LAST_SYNC: '@cashback_hub_last_sync_v1',
+};
+
+// Default fallback server address for local dev/testing
+export const DEFAULT_SYNC_SERVER_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:4000' // Android Emulator loopback
+  : 'http://localhost:4000'; // Web / iOS
+
+type SyncListener = (status: SyncStatusState, lastSyncedAt?: string, errorMessage?: string) => void;
+
+export class SyncService {
+  private static status: SyncStatusState = 'idle';
+  private static listeners: Set<SyncListener> = new Set();
+  private static syncInterval: any = null;
+
+  public static addListener(listener: SyncListener): () => void {
+    this.listeners.add(listener);
+    listener(this.status);
+    return () => this.listeners.delete(listener);
+  }
+
+  private static notify(status: SyncStatusState, lastSyncedAt?: string, error?: string) {
+    this.status = status;
+    this.listeners.forEach((fn) => fn(status, lastSyncedAt, error));
+  }
+
+  public static getStatus(): SyncStatusState {
+    return this.status;
+  }
+
+  public static async getServerUrl(): Promise<string> {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.syncServerUrl) return parsed.syncServerUrl.trim();
+      }
+    } catch {}
+    return DEFAULT_SYNC_SERVER_URL;
+  }
+
+  public static async getSyncKey(): Promise<string> {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.syncKey) return parsed.syncKey.trim();
+      }
+    } catch {}
+    // Generate new default sync key if none exists
+    const randomKey = `CB-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    return randomKey;
+  }
+
+  /**
+   * Initialize automatic sync on startup and recurring intervals
+   */
+  public static async startAutoSync() {
+    if (this.syncInterval) clearInterval(this.syncInterval);
+    
+    // Initial sync
+    setTimeout(() => {
+      this.performSync().catch(() => {});
+    }, 1500);
+
+    // Sync every 30 seconds
+    this.syncInterval = setInterval(() => {
+      this.performSync().catch(() => {});
+    }, 30000);
+  }
+
+  /**
+   * Pair with a specific sync key from another device
+   */
+  public static async pairWithKey(newSyncKey: string): Promise<{ success: boolean; message: string }> {
+    try {
+      this.notify('syncing');
+      const serverUrl = await this.getServerUrl();
+      const cleanKey = newSyncKey.trim().toUpperCase();
+
+      const response = await fetch(`${serverUrl}/api/auth/pair`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ syncKey: cleanKey }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${response.status}`);
+      }
+
+      // Update local settings with new key
+      const rawSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const settings = rawSettings ? JSON.parse(rawSettings) : {};
+      settings.syncKey = cleanKey;
+      await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+
+      // Reset last sync to fetch entire database
+      await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
+
+      // Perform full sync
+      await this.performSync();
+      return { success: true, message: `Успешно подключено к синхро-коду: ${cleanKey}` };
+    } catch (e: any) {
+      this.notify('error', undefined, e.message);
+      return { success: false, message: `Ошибка подключения: ${e.message}` };
+    }
+  }
+
+  /**
+   * Main Two-Way Delta Sync Engine
+   */
+  public static async performSync(): Promise<boolean> {
+    const serverUrl = await this.getServerUrl();
+    const syncKey = await this.getSyncKey();
+
+    try {
+      this.notify('syncing');
+
+      // 1. Get local data
+      const rawBanks = await AsyncStorage.getItem(STORAGE_KEYS.BANKS);
+      const rawCashbacks = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
+      const rawSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const lastSync = (await AsyncStorage.getItem(STORAGE_KEYS.LAST_SYNC)) || undefined;
+
+      const localBanks: Bank[] = rawBanks ? JSON.parse(rawBanks) : [];
+      const localCashbacks: MonthlyCashback[] = rawCashbacks ? JSON.parse(rawCashbacks) : [];
+      const localSettings: Partial<AppSettings> = rawSettings ? JSON.parse(rawSettings) : {};
+
+      // 2. PUSH: Send local changes to server
+      const pushRes = await fetch(`${serverUrl}/api/sync/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          syncKey,
+          banks: localBanks,
+          cashbacks: localCashbacks,
+          settings: localSettings,
+        }),
+      });
+
+      if (!pushRes.ok) {
+        throw new Error(`Push error ${pushRes.status}`);
+      }
+
+      // 3. PULL: Fetch server updates
+      const pullRes = await fetch(`${serverUrl}/api/sync/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          syncKey,
+          since: lastSync,
+        }),
+      });
+
+      if (!pullRes.ok) {
+        throw new Error(`Pull error ${pullRes.status}`);
+      }
+
+      const pullData = await pullRes.json();
+      const serverBanks: Bank[] = pullData.banks || [];
+      const serverCashbacks: MonthlyCashback[] = pullData.cashbacks || [];
+      const serverTime: string = pullData.serverTime || new Date().toISOString();
+
+      // 4. Merge server changes into local storage (Conflict Resolution: Last-Write-Wins)
+      let mergedBanks = [...localBanks];
+      if (serverBanks.length > 0) {
+        const bankMap = new Map<string, Bank>();
+        mergedBanks.forEach((b) => bankMap.set(b.id, b));
+        serverBanks.forEach((sb) => {
+          const existing = bankMap.get(sb.id);
+          if (!existing || new Date(sb.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+            bankMap.set(sb.id, sb);
+          }
+        });
+        mergedBanks = Array.from(bankMap.values());
+        await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(mergedBanks));
+      }
+
+      let mergedCashbacks = [...localCashbacks];
+      if (serverCashbacks.length > 0) {
+        const cbMap = new Map<string, MonthlyCashback>();
+        mergedCashbacks.forEach((c) => cbMap.set(c.id, c));
+        serverCashbacks.forEach((sc) => {
+          const existing = cbMap.get(sc.id);
+          if (!existing || new Date(sc.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+            cbMap.set(sc.id, sc);
+          }
+        });
+        mergedCashbacks = Array.from(cbMap.values());
+        await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(mergedCashbacks));
+      }
+
+      // 5. Update last sync time
+      await AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, serverTime);
+      this.notify('synced', serverTime);
+      return true;
+    } catch (err: any) {
+      // Offline fallback: keep local data untouched
+      this.notify('offline', undefined, err.message);
+      return false;
+    }
+  }
+}

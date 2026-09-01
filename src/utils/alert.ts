@@ -31,3 +31,5 @@ export const showNotification = (title: string, message?: string) => {
     Alert.alert(title, message);
   }
 };
+
+export const showCustomAlert = showNotification;

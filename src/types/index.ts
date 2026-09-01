@@ -16,6 +16,8 @@ export interface Bank {
   iconName: string; // Lucide icon name
   defaultMonthlyLimit?: number; // e.g. 3000 / 5000 RUB
   isActive: boolean;
+  updatedAt?: string;
+  deletedAt?: string | null;
 }
 
 export interface MonthlyCashback {
@@ -26,6 +28,7 @@ export interface MonthlyCashback {
   items: CashbackItem[];
   spentLimit?: number;
   updatedAt: string;
+  deletedAt?: string | null;
   isShared?: boolean;
   sharedByName?: string;
 }
@@ -46,6 +49,8 @@ export interface SmartMatchResult {
   sharedByName?: string;
 }
 
+export type SyncStatusState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+
 export interface AppSettings {
   geminiApiKey: string;
   geminiModel: string;
@@ -53,6 +58,12 @@ export interface AppSettings {
   activeTheme: 'dark' | 'light' | 'system';
   widgetTheme?: 'dark' | 'light' | 'transparent';
   partnerName?: string;
+  // Cloud Sync Settings
+  syncServerUrl?: string; // e.g. http://localhost:4000 or production url
+  syncKey?: string; // Device pairing code e.g. "CB-1234-5678"
+  autoSyncEnabled?: boolean;
+  lastSyncedAt?: string;
+  userEmail?: string;
 }
 
 export interface ScanResult {

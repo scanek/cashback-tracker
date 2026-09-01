@@ -2,12 +2,17 @@
 
 # dependencies
 node_modules/
+server/node_modules/
 
-# Expo
+# Expo & Web
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+
+# Server runtime data
+server/data/
+server/dist/
 
 # Native
 .kotlin/
@@ -26,12 +31,14 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# macOS & OS files
 .DS_Store
 *.pem
+Thumbs.db
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo

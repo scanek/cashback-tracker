@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Bank, MonthlyCashback, ScanResult } from '../types';
@@ -38,6 +39,33 @@ export const ScanScreen: React.FC = () => {
       setBanks(data);
     };
     loadBanks();
+
+    // On Web: Listen for Ctrl+V / Cmd+V screenshot paste
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handlePaste = (e: ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+            const blob = items[i].getAsFile();
+            if (blob) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                const base64 = event.target?.result as string;
+                if (base64) {
+                  processImageBase64(base64, URL.createObjectURL(blob), blob.type);
+                }
+              };
+              reader.readAsDataURL(blob);
+            }
+            break;
+          }
+        }
+      };
+
+      window.addEventListener('paste', handlePaste);
+      return () => window.removeEventListener('paste', handlePaste);
+    }
   }, []);
 
   const processImageBase64 = async (base64: string, uri: string, mimeType?: string) => {
@@ -170,6 +198,20 @@ export const ScanScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.actionButtonsWrap}>
+            {Platform.OS === 'web' && (
+              <View
+                style={[
+                  styles.webPasteHintCard,
+                  { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: '#3B82F6' },
+                ]}
+              >
+                <Sparkles size={18} color="#60A5FA" style={{ marginRight: 8 }} />
+                <Text style={[styles.webPasteHintText, { color: colors.textPrimary }]}>
+                  💡 Нажмите <Text style={{ fontWeight: '800', color: colors.accent }}>Ctrl+V (Cmd+V)</Text> прямо здесь, чтобы вставить скопированный скриншот из буфера!
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.galleryButton, { backgroundColor: colors.accent }]}
               onPress={pickImageFromGallery}
@@ -179,7 +221,7 @@ export const ScanScreen: React.FC = () => {
                 <ImageIcon size={24} color="#0F172A" />
               </View>
               <View style={styles.buttonTextWrap}>
-                <Text style={styles.galleryButtonTitle}>Выбрать скриншот из галереи</Text>
+                <Text style={styles.galleryButtonTitle}>Выбрать скриншот из галереи / файлов</Text>
                 <Text style={styles.galleryButtonSubtitle}>Быстрое сканирование из фото</Text>
               </View>
             </TouchableOpacity>
@@ -312,6 +354,18 @@ const styles = StyleSheet.create({
   actionButtonsWrap: {
     gap: 12,
     marginBottom: 16,
+  },
+  webPasteHintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  webPasteHintText: {
+    fontSize: 12,
+    lineHeight: 16,
+    flex: 1,
   },
   galleryButton: {
     flexDirection: 'row',

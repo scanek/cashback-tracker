@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Bank, MonthlyCashback, AppSettings } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
+import { SyncService } from './sync';
 
 const STORAGE_KEYS = {
   BANKS: '@cashback_hub_banks_v1',
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   activeTheme: 'dark',
   widgetTheme: 'dark',
   partnerName: 'Партнер',
+  autoSyncEnabled: true,
 };
 
 const SAMPLE_CASHBACKS: MonthlyCashback[] = [
@@ -82,7 +84,8 @@ export class StorageService {
     try {
       const initialized = await AsyncStorage.getItem(STORAGE_KEYS.INITIALIZED);
       if (!initialized) {
-        await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(PRESET_BANKS));
+        const banksWithTime = PRESET_BANKS.map(b => ({ ...b, updatedAt: new Date().toISOString() }));
+        await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(banksWithTime));
         await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(SAMPLE_CASHBACKS));
         await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
         await AsyncStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
@@ -96,7 +99,9 @@ export class StorageService {
     try {
       await this.initializeDefaults();
       const data = await AsyncStorage.getItem(STORAGE_KEYS.BANKS);
-      return data ? JSON.parse(data) : PRESET_BANKS;
+      if (!data) return PRESET_BANKS;
+      const banks: Bank[] = JSON.parse(data);
+      return banks.filter(b => !b.deletedAt);
     } catch (e) {
       console.error('Error fetching banks', e);
       return PRESET_BANKS;
@@ -104,28 +109,42 @@ export class StorageService {
   }
 
   static async saveBanks(banks: Bank[]): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(banks));
+    const updated = banks.map(b => ({
+      ...b,
+      updatedAt: new Date().toISOString(),
+    }));
+    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
+    SyncService.performSync().catch(() => {});
   }
 
   static async addCustomBank(bank: Bank): Promise<Bank[]> {
     const banks = await this.getBanks();
-    const updated = [...banks, bank];
-    await this.saveBanks(updated);
+    const newBank = {
+      ...bank,
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = [...banks, newBank];
+    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
+    SyncService.performSync().catch(() => {});
     return updated;
   }
 
   static async toggleBankActive(bankId: string): Promise<Bank[]> {
-    const banks = await this.getBanks();
-    const updated = banks.map(b => b.id === bankId ? { ...b, isActive: !b.isActive } : b);
-    await this.saveBanks(updated);
-    return updated;
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.BANKS);
+    const banks: Bank[] = raw ? JSON.parse(raw) : PRESET_BANKS;
+    const updated = banks.map(b => b.id === bankId ? { ...b, isActive: !b.isActive, updatedAt: new Date().toISOString() } : b);
+    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
+    SyncService.performSync().catch(() => {});
+    return updated.filter(b => !b.deletedAt);
   }
 
   static async getAllCashbacks(): Promise<MonthlyCashback[]> {
     try {
       await this.initializeDefaults();
       const data = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      const list: MonthlyCashback[] = JSON.parse(data);
+      return list.filter(c => !c.deletedAt);
     } catch (e) {
       console.error('Error fetching cashbacks', e);
       return [];
@@ -140,7 +159,9 @@ export class StorageService {
   }
 
   static async saveMonthlyCashback(cashback: MonthlyCashback): Promise<MonthlyCashback[]> {
-    const all = await this.getAllCashbacks();
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
+    const all: MonthlyCashback[] = raw ? JSON.parse(raw) : [];
+
     const targetMonth = Number(cashback.month);
     const targetYear = Number(cashback.year);
     const isShared = Boolean(cashback.isShared);
@@ -156,11 +177,13 @@ export class StorageService {
     let updated: MonthlyCashback[];
     const normalized: MonthlyCashback = {
       ...cashback,
+      id: cashback.id || `cb_${cashback.bankId}_${targetYear}_${targetMonth}_${isShared ? 'shared' : 'my'}`,
       month: targetMonth,
       year: targetYear,
       isShared: isShared,
       sharedByName: cashback.sharedByName || (isShared ? 'Партнер' : undefined),
       updatedAt: new Date().toISOString(),
+      deletedAt: null,
     };
 
     if (index >= 0) {
@@ -175,7 +198,10 @@ export class StorageService {
       const { WidgetService } = require('./widget');
       WidgetService.updateWidget();
     } catch {}
-    return updated;
+    
+    // Auto-trigger background sync
+    SyncService.performSync().catch(() => {});
+    return updated.filter(c => !c.deletedAt);
   }
 
   static async deleteMonthlyCashback(
@@ -184,25 +210,32 @@ export class StorageService {
     year: number,
     isShared?: boolean
   ): Promise<void> {
-    const all = await this.getAllCashbacks();
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
+    const all: MonthlyCashback[] = raw ? JSON.parse(raw) : [];
+
     const targetMonth = Number(month);
     const targetYear = Number(year);
     const targetIsShared = Boolean(isShared);
 
-    const filtered = all.filter(
-      (c) =>
-        !(
-          c.bankId === bankId &&
-          Number(c.month) === targetMonth &&
-          Number(c.year) === targetYear &&
-          Boolean(c.isShared) === targetIsShared
-        )
-    );
-    await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(filtered));
+    const updated = all.map((c) => {
+      if (
+        c.bankId === bankId &&
+        Number(c.month) === targetMonth &&
+        Number(c.year) === targetYear &&
+        Boolean(c.isShared) === targetIsShared
+      ) {
+        return { ...c, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      }
+      return c;
+    });
+
+    await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(updated));
     try {
       const { WidgetService } = require('./widget');
       WidgetService.updateWidget();
     } catch {}
+
+    SyncService.performSync().catch(() => {});
   }
 
   static async getSettings(): Promise<AppSettings> {
@@ -228,6 +261,7 @@ export class StorageService {
     const current = await this.getSettings();
     const updated = { ...current, ...settings };
     await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+    SyncService.performSync().catch(() => {});
     return updated;
   }
 
@@ -240,7 +274,7 @@ export class StorageService {
       exportedAt: new Date().toISOString(),
       banks,
       cashbacks,
-      settings: { ...settings, geminiApiKey: '' } // Do not export secret key
+      settings: { ...settings, geminiApiKey: '' }
     }, null, 2);
   }
 
@@ -264,6 +298,7 @@ export class StorageService {
         const { WidgetService } = require('./widget');
         WidgetService.updateWidget();
       } catch {}
+      SyncService.performSync().catch(() => {});
       return true;
     } catch (e) {
       console.error('Import failed', e);
@@ -272,7 +307,9 @@ export class StorageService {
   }
 
   static async resetToSampleData(): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(PRESET_BANKS));
+    const banksWithTime = PRESET_BANKS.map(b => ({ ...b, updatedAt: new Date().toISOString() }));
+    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(banksWithTime));
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(SAMPLE_CASHBACKS));
+    SyncService.performSync().catch(() => {});
   }
 }
