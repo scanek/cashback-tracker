@@ -15,7 +15,7 @@ import { StorageService } from '../services/storage';
 import { NotificationService } from '../services/notifications';
 import { GeminiVisionService } from '../services/gemini';
 import { ShareService } from '../services/share';
-import { confirmDialog } from '../utils/alert';
+import { confirmDialog, showCustomAlert } from '../utils/alert';
 import { Header } from '../components/Header';
 import { ImportCashbackModal } from '../components/ImportCashbackModal';
 import { PairDeviceModal } from '../components/PairDeviceModal';
@@ -138,25 +138,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const handleSaveApiKey = async () => {
     const clean = GeminiVisionService.sanitizeApiKey(apiKey);
     await StorageService.saveSettings({ geminiApiKey: clean });
-    Alert.alert('Сохранено', 'Gemini API ключ сохранен!');
+    showCustomAlert('Сохранено', 'Gemini API ключ сохранен!');
   };
 
   const handleSavePartnerName = async () => {
     const clean = partnerName.trim() || 'Партнер';
     setPartnerName(clean);
     await StorageService.saveSettings({ partnerName: clean });
-    Alert.alert('Сохранено', `Название партнера сохранено: «${clean}»`);
+    showCustomAlert('Сохранено', `Название партнера сохранено: «${clean}»`);
   };
 
   const handleTestApiKey = async () => {
     const clean = GeminiVisionService.sanitizeApiKey(apiKey);
+    if (!clean) {
+      showCustomAlert('Ошибка', 'Сначала введите API ключ в поле выше');
+      return;
+    }
     setTestingKey(true);
     const res = await GeminiVisionService.testApiKeyAndGetModel(clean);
     setTestingKey(false);
     if (res.success) {
-      Alert.alert('Успешно!', `Ключ работает! Модель: ${res.modelName}`);
+      showCustomAlert('Успешно!', `Ключ работает! Модель: ${res.modelName}`);
     } else {
-      Alert.alert('Ошибка ключа', res.message);
+      showCustomAlert('Ошибка ключа', res.message);
     }
   };
 
@@ -181,7 +185,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       async () => {
         await StorageService.resetToSampleData();
         await loadData();
-        Alert.alert('Готово', 'Базовые данные восстановлены!');
+        showCustomAlert('Готово', 'Базовые данные восстановлены!');
       },
       'Сбросить'
     );
@@ -190,7 +194,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const handleSaveServerUrl = async () => {
     const clean = serverUrl.trim();
     await StorageService.saveSettings({ syncServerUrl: clean });
-    Alert.alert('Сохранено', `Адрес сервера синхронизации сохранен: ${clean}`);
+    showCustomAlert('Сохранено', `Адрес сервера синхронизации сохранен: ${clean}`);
   };
 
   const handleManualSync = async () => {
@@ -199,9 +203,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setSyncingNow(false);
     if (success) {
       await loadData();
-      Alert.alert('Синхронизировано', 'Данные успешно обновлены из облака!');
+      showCustomAlert('Синхронизировано', 'Данные успешно обновлены из облака!');
     } else {
-      Alert.alert('Офлайн', 'Не удалось связаться с сервером. Проверьте адрес сервера и интернет.');
+      showCustomAlert('Офлайн', 'Не удалось связаться с сервером. Проверьте адрес сервера и интернет.');
     }
   };
 
@@ -244,7 +248,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         }
       }
     } catch (e: any) {
-      Alert.alert('Ошибка выбора файла', e.message || 'Не удалось открыть файл бэкапа');
+      showCustomAlert('Ошибка выбора файла', e.message || 'Не удалось открыть файл бэкапа');
     }
   };
 
@@ -265,7 +269,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     try {
       const parsed = JSON.parse(jsonString);
       if (!parsed.banks || !Array.isArray(parsed.banks)) {
-        Alert.alert('Ошибка бэкапа', 'Файл не содержит корректных данных банков');
+        showCustomAlert('Ошибка бэкапа', 'Файл не содержит корректных данных банков');
         return;
       }
 
@@ -278,15 +282,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           const success = await StorageService.importBackup(jsonString);
           if (success) {
             await loadData();
-            Alert.alert('Готово!', 'Все данные успешно восстановлены из резервной копии!');
+            showCustomAlert('Готово!', 'Все данные успешно восстановлены из резервной копии!');
           } else {
-            Alert.alert('Ошибка', 'Не удалось восстановить данные из бэкапа');
+            showCustomAlert('Ошибка', 'Не удалось восстановить данные из бэкапа');
           }
         },
         'Восстановить'
       );
     } catch (e) {
-      Alert.alert('Ошибка файла', 'Выбранный файл поврежден или не является валидным JSON');
+      showCustomAlert('Ошибка файла', 'Выбранный файл поврежден или не является валидным JSON');
     }
   };
 

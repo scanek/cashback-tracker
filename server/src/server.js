@@ -347,9 +347,41 @@ const server = http.createServer(async (req, res) => {
           settings: userSettings,
           serverTime: new Date().toISOString(),
         });
+      // 7. Test API Key Endpoint
+      if (req.method === 'POST' && pathname === '/api/scan/test-key') {
+        const { apiKey } = parsedBody;
+        const cleanKey = (apiKey || process.env.GEMINI_API_KEY || '').trim();
+        if (!cleanKey) {
+          return sendJson(400, { success: false, message: 'API ключ не передан' });
+        }
+
+        try {
+          const testRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`
+          );
+          if (!testRes.ok) {
+            const errText = await testRes.text();
+            return sendJson(200, { success: false, message: `Ошибка Google API (${testRes.status}): ${errText}` });
+          }
+
+          const data = await testRes.json();
+          const models = data.models || [];
+          const flash = models.find((m) => m.name && m.name.includes('gemini-2.0-flash')) ||
+                        models.find((m) => m.name && m.name.includes('gemini-1.5-flash')) ||
+                        models[0];
+          const modelName = flash ? flash.name.replace(/^models\//, '') : 'gemini-2.0-flash';
+
+          return sendJson(200, {
+            success: true,
+            modelName,
+            message: `Ключ проверен через сервер! Выбрана модель: ${modelName}`,
+          });
+        } catch (err) {
+          return sendJson(500, { success: false, message: `Сетевая ошибка сервера: ${err.message}` });
+        }
       }
 
-      // 7. Vision OCR Endpoint
+      // 8. Vision OCR Endpoint
       if (req.method === 'POST' && pathname === '/api/scan/vision') {
         const { base64Image, apiKey } = parsedBody;
         if (!base64Image) {

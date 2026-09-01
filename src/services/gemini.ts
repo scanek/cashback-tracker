@@ -41,49 +41,73 @@ export class GeminiVisionService {
       return { success: false, message: 'API ключ не введен' };
     }
 
+    // 1. Try Direct Google API
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`,
+        { signal: controller.signal }
       );
-      if (!response.ok) {
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        const models: any[] = data.models || [];
+        const visionModels = models.filter(
+          (m: any) =>
+            m.supportedGenerationMethods &&
+            m.supportedGenerationMethods.includes('generateContent')
+        );
+
+        if (visionModels.length > 0) {
+          const preferred =
+            visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
+            visionModels.find((m) => m.name.includes('gemini-1.5-flash')) ||
+            visionModels[0];
+          const modelId = preferred.name.replace(/^models\//, '');
+          this.cachedWorkingModel = modelId;
+          return {
+            success: true,
+            modelName: modelId,
+            message: `Ключ работает отлично! Выбрана модель: ${modelId}`,
+          };
+        }
+      } else {
         const errorText = await response.text();
-        return { success: false, message: `Ошибка ключа (${response.status}): ${errorText}` };
+        return { success: false, message: `Ошибка Google (${response.status}): ${errorText}` };
       }
-
-      const data = await response.json();
-      const models: any[] = data.models || [];
-
-      const visionModels = models.filter(
-        (m: any) =>
-          m.supportedGenerationMethods &&
-          m.supportedGenerationMethods.includes('generateContent')
-      );
-
-      if (visionModels.length === 0) {
-        return {
-          success: false,
-          message: 'Для этого ключа не найдено доступных моделей в Google AI Studio.',
-        };
-      }
-
-      const preferred =
-        visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
-        visionModels.find((m) => m.name.includes('gemini-1.5-flash')) ||
-        visionModels.find((m) => m.name.includes('gemini-2.0-flash-lite')) ||
-        visionModels.find((m) => m.name.includes('gemini-1.5-pro')) ||
-        visionModels[0];
-
-      const modelId = preferred.name.replace(/^models\//, '');
-      this.cachedWorkingModel = modelId;
-
-      return {
-        success: true,
-        modelName: modelId,
-        message: `Ключ работает отлично! Выбрана сверхбыстрая модель: ${modelId}`,
-      };
-    } catch (e: any) {
-      return { success: false, message: e.message || 'Сетевая ошибка при проверке ключа' };
+    } catch (directErr: any) {
+      console.warn('Direct key test failed or geo-blocked, trying server proxy:', directErr);
     }
+
+    // 2. Try Server Proxy if Direct Fetch was blocked
+    try {
+      const serverUrl = await SyncService.getServerUrl();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const serverRes = await fetch(`${serverUrl}/api/scan/test-key`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: cleanKey }),
+      });
+      clearTimeout(timeoutId);
+
+      if (serverRes.ok) {
+        const resData = await serverRes.json();
+        return resData;
+      }
+    } catch (serverErr) {
+      console.warn('Server test-key proxy failed:', serverErr);
+    }
+
+    return {
+      success: false,
+      message: 'Не удалось связаться с Google AI Studio (возможна сетевая блокировка в вашем регионе). Проверьте ключ и подключение.',
+    };
   }
 
   /**
