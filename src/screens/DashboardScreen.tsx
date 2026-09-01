@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
+import { SyncService } from '../services/sync';
 import { ShareService } from '../services/share';
 import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
@@ -65,6 +66,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   useEffect(() => {
     loadData();
+    const unsubscribe = SyncService.addListener((status) => {
+      if (status === 'synced') {
+        loadData();
+      }
+    });
+    return () => unsubscribe();
   }, [loadData]);
 
   const onRefresh = async () => {

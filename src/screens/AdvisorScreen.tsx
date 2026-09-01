@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Bank, MonthlyCashback, SmartMatchResult } from '../types';
 import { StorageService } from '../services/storage';
+import { SyncService } from '../services/sync';
 import { CashbackMatcher } from '../services/matcher';
 import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
@@ -53,6 +54,12 @@ export const AdvisorScreen: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = SyncService.addListener((status) => {
+      if (status === 'synced') {
+        loadData();
+      }
+    });
+    return () => unsubscribe();
   }, [loadData]);
 
   const onRefresh = async () => {

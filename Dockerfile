@@ -21,6 +21,9 @@ RUN npx expo export --platform web
 RUN cp -r public/* dist/ 2>/dev/null || true
 RUN mkdir -p dist/assets && cp -r assets/* dist/assets/ 2>/dev/null || true
 
+# Inject PWA meta tags and manifest link into index.html
+RUN node scripts/inject-pwa.js
+
 # 2. Production Stage (Nginx Alpine)
 FROM nginx:alpine
 

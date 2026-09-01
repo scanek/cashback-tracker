@@ -9,10 +9,9 @@ const STORAGE_KEYS = {
   LAST_SYNC: '@cashback_hub_last_sync_v1',
 };
 
-// Default fallback server address for local dev/testing
 export const DEFAULT_SYNC_SERVER_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:4000' // Android Emulator loopback
-  : 'http://localhost:4000'; // Web / iOS
+  ? 'http://10.0.2.2:4000'
+  : 'http://localhost:4000';
 
 type SyncListener = (status: SyncStatusState, lastSyncedAt?: string, errorMessage?: string) => void;
 
@@ -41,9 +40,18 @@ export class SyncService {
       const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.syncServerUrl) return parsed.syncServerUrl.trim();
+        if (parsed.syncServerUrl && parsed.syncServerUrl.trim()) {
+          return parsed.syncServerUrl.trim();
+        }
       }
     } catch {}
+
+    // Auto-detect host IP / domain on Web
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+      const host = window.location.hostname;
+      return `http://${host}:4000`;
+    }
+
     return DEFAULT_SYNC_SERVER_URL;
   }
 
@@ -52,11 +60,22 @@ export class SyncService {
       const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.syncKey) return parsed.syncKey.trim();
+        if (parsed.syncKey && parsed.syncKey.trim()) {
+          return parsed.syncKey.trim();
+        }
       }
     } catch {}
-    // Generate new default sync key if none exists
+    
+    // Generate new unique default sync key if none exists
     const randomKey = `CB-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const settings = raw ? JSON.parse(raw) : {};
+      settings.syncKey = randomKey;
+      await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    } catch {}
+    
     return randomKey;
   }
 
@@ -71,14 +90,14 @@ export class SyncService {
       this.performSync().catch(() => {});
     }, 1500);
 
-    // Sync every 30 seconds
+    // Sync every 20 seconds
     this.syncInterval = setInterval(() => {
       this.performSync().catch(() => {});
-    }, 30000);
+    }, 20000);
   }
 
   /**
-   * Pair with a specific sync key from another device
+   * Pair this device with a specific sync key from another device
    */
   public static async pairWithKey(newSyncKey: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -103,12 +122,32 @@ export class SyncService {
       settings.syncKey = cleanKey;
       await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
 
-      // Reset last sync to fetch entire database
+      // Reset last sync to fetch entire cloud database
       await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
 
-      // Perform full sync
+      // 1. First PULL everything from the paired device's cloud account
+      const pullRes = await fetch(`${serverUrl}/api/sync/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ syncKey: cleanKey }),
+      });
+
+      if (pullRes.ok) {
+        const pullData = await pullRes.json();
+        if (pullData.banks && pullData.banks.length > 0) {
+          await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(pullData.banks));
+        }
+        if (pullData.cashbacks && pullData.cashbacks.length > 0) {
+          await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(pullData.cashbacks));
+        }
+        if (pullData.serverTime) {
+          await AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, pullData.serverTime);
+        }
+      }
+
+      // 2. Perform full sync
       await this.performSync();
-      return { success: true, message: `Успешно подключено к синхро-коду: ${cleanKey}` };
+      return { success: true, message: `Успешно подключено к синхро-коду: ${cleanKey}! Все кэшбэки объединены.` };
     } catch (e: any) {
       this.notify('error', undefined, e.message);
       return { success: false, message: `Ошибка подключения: ${e.message}` };
@@ -191,7 +230,7 @@ export class SyncService {
         mergedCashbacks.forEach((c) => cbMap.set(c.id, c));
         serverCashbacks.forEach((sc) => {
           const existing = cbMap.get(sc.id);
-          if (!existing || new Date(sc.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+          if (!existing || existing.id.startsWith('sample-') || new Date(sc.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
             cbMap.set(sc.id, sc);
           }
         });
