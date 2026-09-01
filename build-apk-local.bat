@@ -11,14 +11,14 @@ cd /d "%PROJECT_DIR%"
 if "%JAVA_HOME%"=="" (
     if exist "C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot" (
         set "JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot"
-        set "PATH=%JAVA_HOME%\bin;%PATH%"
     )
 )
 
 if "%ANDROID_HOME%"=="" (
-    if exist "%LOCALAPPDATA%\Android\Sdk" (
-        set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
-        set "PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%PATH%"
+    if exist "C:\Users\657C~1\AppData\Local\Android\Sdk" (
+        set "ANDROID_HOME=C:\Users\657C~1\AppData\Local\Android\Sdk"
+    ) else if exist "%LOCALAPPDATA%\Android\Sdk" (
+        for %%I in ("%LOCALAPPDATA%\Android\Sdk") do set "ANDROID_HOME=%%~sI"
     )
 )
 
@@ -26,14 +26,16 @@ if "%GRADLE_USER_HOME%"=="" (
     set "GRADLE_USER_HOME=C:\.gradle"
 )
 
+set "PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmake\3.22.1\bin;%JAVA_HOME%\bin;%PATH%"
+
 echo [1/4] Проверка окружения...
 if "%ANDROID_HOME%"=="" (
     echo [!] ПРЕДУПРЕЖДЕНИЕ: Переменная ANDROID_HOME не найдена.
-    echo     Если у вас установлен Android Studio, укажите путь к SDK.
 ) else (
     echo [v] Android SDK: %ANDROID_HOME%
 )
 echo [v] Java JDK: %JAVA_HOME%
+echo [v] Gradle Home: %GRADLE_USER_HOME%
 echo.
 
 echo [2/4] Генерация нативного Android проекта (Expo Prebuild)...
@@ -45,7 +47,10 @@ if errorlevel 1 (
 )
 
 if not "%ANDROID_HOME%"=="" (
-    echo sdk.dir=%ANDROID_HOME:\=\\% > android\local.properties
+    set "CLEAN_SDK=%ANDROID_HOME:\=/%"
+    echo sdk.dir=%CLEAN_SDK% > android\local.properties
+    echo cmake.dir=%CLEAN_SDK%/cmake/3.22.1 >> android\local.properties
+    echo ndk.dir=%CLEAN_SDK%/ndk/27.1.12297006 >> android\local.properties
 )
 
 echo.
@@ -55,7 +60,6 @@ call gradlew.bat assembleRelease --stacktrace
 if errorlevel 1 (
     echo.
     echo [X] Ошибка при сборке APK через Gradle.
-    echo     Убедитесь, что установлен Android SDK (через Android Studio или cmdline-tools).
     cd ..
     pause
     exit /b 1
