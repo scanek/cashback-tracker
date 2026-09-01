@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Clipboard,
   Platform,
+  ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { SyncService } from '../services/sync';
@@ -87,95 +89,117 @@ export const PairDeviceModal: React.FC<PairDeviceModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.overlay}
+      >
         <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Cloud size={22} color="#60A5FA" />
+              <Cloud size={22} color="#38BDF8" />
               <Text style={[styles.title, { color: colors.textPrimary }]}>Облачная синхронизация</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Мгновенная двусторонняя синхронизация между веб-версией на компьютере и мобильным приложением.
-          </Text>
-
-          {/* Current Device Code */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              Синхро-код этого устройства:
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Мгновенный обмен кэшбэками между браузером на компьютере и телефоном.
             </Text>
-            <View style={styles.keyRow}>
-              <Text style={[styles.keyText, { color: colors.accent }]}>{currentKey || 'Загрузка...'}</Text>
-              <TouchableOpacity
-                onPress={handleCopyKey}
-                style={[styles.copyBtn, { backgroundColor: copied ? '#10B981' : colors.card, borderColor: colors.cardBorder }]}
-              >
-                {copied ? <Check size={16} color="#FFFFFF" /> : <Copy size={16} color={colors.textPrimary} />}
-                <Text style={[styles.copyBtnText, { color: copied ? '#FFFFFF' : colors.textPrimary }]}>
-                  {copied ? 'Скопировано' : 'Копировать'}
+
+            {/* Current Device Code Card */}
+            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                Синхро-код этого устройства:
+              </Text>
+              <View style={styles.keyRow}>
+                <Text style={[styles.keyText, { color: colors.accent }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {currentKey || 'Загрузка...'}
                 </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCopyKey}
+                  style={[
+                    styles.copyBtn,
+                    {
+                      backgroundColor: copied ? '#10B981' : colors.card,
+                      borderColor: copied ? '#10B981' : colors.cardBorder,
+                    },
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  {copied ? <Check size={14} color="#FFFFFF" /> : <Copy size={14} color={colors.textPrimary} />}
+                  <Text style={[styles.copyBtnText, { color: copied ? '#FFFFFF' : colors.textPrimary }]}>
+                    {copied ? 'Скопировано' : 'Копировать'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          {/* Connect to Another Device */}
-          <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              Подключиться к другому устройству:
-            </Text>
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              Введите код с вашего телефона или браузера, чтобы объединить данные.
-            </Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.inputBorder },
-                ]}
-                placeholder="Например: CB-4821-9921"
-                placeholderTextColor={colors.textMuted}
-                value={inputKey}
-                onChangeText={setInputKey}
-                autoCapitalize="characters"
-              />
-              <TouchableOpacity
-                onPress={handlePair}
-                disabled={loading}
-                style={[styles.pairBtn, { backgroundColor: colors.accent }]}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#0F172A" />
-                ) : (
-                  <>
-                    <Text style={styles.pairBtnText}>Связать</Text>
-                    <ArrowRight size={16} color="#0F172A" />
-                  </>
-                )}
-              </TouchableOpacity>
+            {/* Connect to Another Device Card */}
+            <View style={[styles.section, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                Подключиться к другому устройству:
+              </Text>
+              <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                Введите код с экрана вашего ПК или второго телефона:
+              </Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBackground,
+                      color: colors.textPrimary,
+                      borderColor: colors.inputBorder,
+                    },
+                  ]}
+                  placeholder="CB-XXXX-XXXX"
+                  placeholderTextColor={colors.textMuted}
+                  value={inputKey}
+                  onChangeText={setInputKey}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={handlePair}
+                  disabled={loading}
+                  style={[styles.pairBtn, { backgroundColor: colors.accent }]}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#0F172A" />
+                  ) : (
+                    <>
+                      <Text style={styles.pairBtnText}>Связать</Text>
+                      <ArrowRight size={15} color="#0F172A" />
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          {/* Action buttons */}
-          <View style={styles.footer}>
+            {/* Manual Sync Now button */}
             <TouchableOpacity
               onPress={handleManualSyncNow}
               disabled={loading}
-              style={[styles.syncNowBtn, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}
+              style={[
+                styles.syncNowBtn,
+                { borderColor: colors.cardBorder, backgroundColor: colors.background },
+              ]}
+              activeOpacity={0.8}
             >
-              <RefreshCw size={16} color={colors.accentBlue} />
+              <RefreshCw size={16} color={colors.accentBlue} style={{ marginRight: 8 }} />
               <Text style={[styles.syncNowBtnText, { color: colors.textPrimary }]}>
-                Синхронизировать сейчас
+                {loading ? 'Синхронизация...' : 'Синхронизировать сейчас'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -183,50 +207,61 @@ export const PairDeviceModal: React.FC<PairDeviceModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
   },
   container: {
     width: '100%',
     maxWidth: 480,
-    borderRadius: 24,
+    maxHeight: '90%',
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 24,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    flex: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
+    flexShrink: 1,
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
+  },
+  scrollContent: {
+    paddingBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 20,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
   },
   section: {
-    padding: 16,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -234,73 +269,73 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 12,
     lineHeight: 16,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   keyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'nowrap',
   },
   keyText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
+    flex: 1,
   },
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
     borderWidth: 1,
-    gap: 6,
+    gap: 5,
   },
   copyBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   inputRow: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    height: 46,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 15,
+    paddingHorizontal: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   pairBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    height: 46,
-    borderRadius: 12,
-    gap: 6,
+    paddingHorizontal: 14,
+    height: 42,
+    borderRadius: 10,
+    gap: 4,
   },
   pairBtnText: {
     color: '#0F172A',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-  },
-  footer: {
-    marginTop: 8,
   },
   syncNowBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
+    height: 42,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 8,
+    marginTop: 4,
   },
   syncNowBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
 });

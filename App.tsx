@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
   View,
   Text,
+  StyleSheet,
   TouchableOpacity,
   StatusBar,
   Platform,
@@ -25,19 +25,16 @@ import {
   Camera,
   Wallet,
   Settings as SettingsIcon,
-  Smartphone,
-  Sun,
-  Moon,
 } from 'lucide-react-native';
 
 type TabType = 'dashboard' | 'advisor' | 'scan' | 'cards' | 'settings';
 
 function MainAppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const { colors, theme, setTheme } = useTheme();
-  const { width, height } = useWindowDimensions();
+  const { colors, theme } = useTheme();
+  const { width } = useWindowDimensions();
 
-  const isWebDesktop = Platform.OS === 'web' && width > 560;
+  const isDesktop = width > 768;
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -79,13 +76,9 @@ function MainAppContent() {
     }
   };
 
-  const appContent = (
+  return (
     <SafeAreaView
-      style={[
-        styles.safeArea,
-        { backgroundColor: colors.background },
-        isWebDesktop && styles.webCanvasSafeArea,
-      ]}
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
       edges={['top', 'bottom', 'left', 'right']}
     >
       <StatusBar
@@ -93,23 +86,13 @@ function MainAppContent() {
         backgroundColor={colors.background}
       />
 
-      {/* Simulated Mobile Status Notch for Web Desktop */}
-      {isWebDesktop && (
-        <View
-          style={[
-            styles.webTopStatusBar,
-            { backgroundColor: colors.background, borderBottomColor: colors.cardBorder },
-          ]}
-        >
-          <View style={styles.webSpeakerPill} />
-        </View>
-      )}
-
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Main Active Screen */}
-        <View style={styles.screenContainer}>{renderCurrentScreen()}</View>
+        {/* Main Content Area - Full width responsive container */}
+        <View style={[styles.screenContainer, isDesktop && styles.desktopContainer]}>
+          {renderCurrentScreen()}
+        </View>
 
-        {/* Modern Bottom Navigation Bar */}
+        {/* Modern Navigation Bar */}
         <View
           style={[
             styles.tabBar,
@@ -119,162 +102,111 @@ function MainAppContent() {
             },
           ]}
         >
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setActiveTab('dashboard')}
-            activeOpacity={0.7}
-          >
-            <CreditCard
-              size={22}
-              color={activeTab === 'dashboard' ? colors.accent : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: activeTab === 'dashboard' ? colors.accent : colors.textMuted },
-                activeTab === 'dashboard' && styles.tabLabelActive,
-              ]}
+          <View style={[styles.tabBarInner, isDesktop && styles.desktopTabBarInner]}>
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => setActiveTab('dashboard')}
+              activeOpacity={0.7}
             >
-              Кэшбэк
-            </Text>
-          </TouchableOpacity>
+              <CreditCard
+                size={22}
+                color={activeTab === 'dashboard' ? colors.accent : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: activeTab === 'dashboard' ? colors.accent : colors.textMuted },
+                  activeTab === 'dashboard' && styles.tabLabelActive,
+                ]}
+              >
+                Кэшбэк
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setActiveTab('advisor')}
-            activeOpacity={0.7}
-          >
-            <Sparkles
-              size={22}
-              color={activeTab === 'advisor' ? colors.accentBlue : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: activeTab === 'advisor' ? colors.accentBlue : colors.textMuted },
-                activeTab === 'advisor' && styles.tabLabelActive,
-              ]}
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => setActiveTab('advisor')}
+              activeOpacity={0.7}
             >
-              Чем платить
-            </Text>
-          </TouchableOpacity>
+              <Sparkles
+                size={22}
+                color={activeTab === 'advisor' ? colors.accentBlue : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: activeTab === 'advisor' ? colors.accentBlue : colors.textMuted },
+                  activeTab === 'advisor' && styles.tabLabelActive,
+                ]}
+              >
+                Чем платить
+              </Text>
+            </TouchableOpacity>
 
-          {/* Center Scan Tab Button */}
-          <TouchableOpacity
-            style={styles.centerScanTab}
-            onPress={() => setActiveTab('scan')}
-            activeOpacity={0.85}
-          >
-            <View
-              style={[
-                styles.scanButtonCircle,
-                {
-                  backgroundColor: colors.accent,
-                  shadowColor: colors.accent,
-                },
-              ]}
+            {/* Center Scan Tab Button */}
+            <TouchableOpacity
+              style={styles.centerScanTab}
+              onPress={() => setActiveTab('scan')}
+              activeOpacity={0.85}
             >
-              <Camera size={22} color="#0F172A" />
-            </View>
-            <Text style={[styles.scanTabLabel, { color: colors.accent }]}>Сканер</Text>
-          </TouchableOpacity>
+              <View
+                style={[
+                  styles.scanButtonCircle,
+                  {
+                    backgroundColor: colors.accent,
+                    shadowColor: colors.accent,
+                  },
+                ]}
+              >
+                <Camera size={22} color="#0F172A" />
+              </View>
+              <Text style={[styles.scanTabLabel, { color: colors.accent }]}>Сканер</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setActiveTab('cards')}
-            activeOpacity={0.7}
-          >
-            <Wallet
-              size={22}
-              color={activeTab === 'cards' ? colors.accentBlue : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: activeTab === 'cards' ? colors.accentBlue : colors.textMuted },
-                activeTab === 'cards' && styles.tabLabelActive,
-              ]}
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => setActiveTab('cards')}
+              activeOpacity={0.7}
             >
-              Банки
-            </Text>
-          </TouchableOpacity>
+              <Wallet
+                size={22}
+                color={activeTab === 'cards' ? colors.accentBlue : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: activeTab === 'cards' ? colors.accentBlue : colors.textMuted },
+                  activeTab === 'cards' && styles.tabLabelActive,
+                ]}
+              >
+                Банки
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setActiveTab('settings')}
-            activeOpacity={0.7}
-          >
-            <SettingsIcon
-              size={22}
-              color={activeTab === 'settings' ? colors.accentBlue : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: activeTab === 'settings' ? colors.accentBlue : colors.textMuted },
-                activeTab === 'settings' && styles.tabLabelActive,
-              ]}
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => setActiveTab('settings')}
+              activeOpacity={0.7}
             >
-              Настройки
-            </Text>
-          </TouchableOpacity>
+              <SettingsIcon
+                size={22}
+                color={activeTab === 'settings' ? colors.accentBlue : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: activeTab === 'settings' ? colors.accentBlue : colors.textMuted },
+                  activeTab === 'settings' && styles.tabLabelActive,
+                ]}
+              >
+                Настройки
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
   );
-
-  // When viewed on wide web screens (Desktop / Tablet), display in a gorgeous smartphone frame
-  if (isWebDesktop) {
-    const desktopBg = theme === 'dark' ? '#070B14' : '#E2E8F0';
-    const canvasWidth = Math.min(460, width - 32);
-    const canvasHeight = Math.min(940, height - 36);
-
-    return (
-      <View style={[styles.webDesktopOuter, { backgroundColor: desktopBg }]}>
-        {/* Top Desktop Web Bar */}
-        <View style={styles.webHeaderBar}>
-          <View style={styles.webBrandRow}>
-            <Smartphone size={16} color={colors.accent} style={{ marginRight: 6 }} />
-            <Text style={[styles.webBrandText, { color: colors.textPrimary }]}>
-              Мои Кэшбеки • Mobile Web
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.webThemeToggleBtn,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
-            ]}
-            onPress={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            activeOpacity={0.7}
-          >
-            {theme === 'dark' ? (
-              <Sun size={15} color={colors.accent} />
-            ) : (
-              <Moon size={15} color={colors.accentBlue} />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Center Mobile Phone Canvas */}
-        <View
-          style={[
-            styles.webMobileCanvas,
-            {
-              width: canvasWidth,
-              height: canvasHeight,
-              borderColor: theme === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
-              backgroundColor: colors.background,
-            },
-          ]}
-        >
-          {appContent}
-        </View>
-      </View>
-    );
-  }
-
-  // Native mobile app / mobile browser: full screen
-  return appContent;
 }
 
 export default function App() {
@@ -291,23 +223,34 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  webCanvasSafeArea: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
   container: {
     flex: 1,
+    width: '100%',
   },
   screenContainer: {
     flex: 1,
+    width: '100%',
+  },
+  desktopContainer: {
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
   },
   tabBar: {
+    borderTopWidth: 1,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 14 : 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  tabBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    paddingBottom: Platform.OS === 'ios' ? 14 : 8,
+    width: '100%',
+  },
+  desktopTabBarInner: {
+    maxWidth: 900,
   },
   tabItem: {
     alignItems: 'center',
@@ -329,9 +272,9 @@ const styles = StyleSheet.create({
     marginTop: -14,
   },
   scanButtonCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 4 },
@@ -343,58 +286,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
     fontWeight: '700',
-  },
-  // Web Desktop Frame Styles
-  webDesktopOuter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  webHeaderBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: 460,
-    maxWidth: '100%',
-    paddingHorizontal: 8,
-    marginBottom: 8,
-  },
-  webBrandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  webBrandText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  webThemeToggleBtn: {
-    padding: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  webMobileCanvas: {
-    borderRadius: 28,
-    borderWidth: 2,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.4,
-    shadowRadius: 30,
-    elevation: 12,
-  },
-  webTopStatusBar: {
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  webSpeakerPill: {
-    width: 48,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(150, 150, 150, 0.3)',
   },
 });
