@@ -347,6 +347,8 @@ const server = http.createServer(async (req, res) => {
           settings: userSettings,
           serverTime: new Date().toISOString(),
         });
+      }
+
       // 7. Test API Key Endpoint
       if (req.method === 'POST' && pathname === '/api/scan/test-key') {
         const { apiKey } = parsedBody;
