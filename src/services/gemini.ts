@@ -1,6 +1,7 @@
 import { ScanResult } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
 import { SyncService } from './sync';
+import { ImageBankDetector } from '../utils/imageAnalyzer';
 
 const SYSTEM_PROMPT = `Ты — эксперт по распознаванию кэшбэка со скриншотов банковских приложений РФ.
 Определи банк, месяц (0-11, где 0=Янв, 11=Дек), год (${new Date().getFullYear()}) и список категорий кэшбэка с их процентами.
@@ -153,9 +154,8 @@ export class GeminiVisionService {
       console.warn('Server proxy scan failed or offline:', serverErr);
     }
 
-    // 3. Graceful Fallback: Never crash or close silently!
-    // Open the smart review modal so user can save or customize immediately
-    return this.mockSmartRecognition();
+    // 3. Graceful Fallback: Detect bank by screenshot color and signature!
+    return ImageBankDetector.detectFromBase64(base64Image);
   }
 
   private static async tryModel(

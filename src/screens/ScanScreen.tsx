@@ -23,6 +23,7 @@ import {
   Sparkles,
   CheckCircle2,
   Zap,
+  Key,
 } from 'lucide-react-native';
 
 export const ScanScreen: React.FC = () => {
@@ -33,13 +34,16 @@ export const ScanScreen: React.FC = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [selectedImageUri, setSelectedImageUri] = useState<string | undefined>();
   const [reviewModalVisible, setReviewModalVisible] = useState<boolean>(false);
+  const [hasApiKey, setHasApiKey] = useState<boolean>(false);
 
   useEffect(() => {
-    const loadBanks = async () => {
+    const loadBanksAndSettings = async () => {
       const data = await StorageService.getBanks();
+      const settings = await StorageService.getSettings();
       setBanks(data);
+      setHasApiKey(Boolean(settings.geminiApiKey && settings.geminiApiKey.trim()));
     };
-    loadBanks();
+    loadBanksAndSettings();
 
     // On Web: Listen for Ctrl+V / Cmd+V screenshot paste
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -203,6 +207,20 @@ export const ScanScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.actionButtonsWrap}>
+            {!hasApiKey && (
+              <View
+                style={[
+                  styles.webPasteHintCard,
+                  { backgroundColor: 'rgba(234, 179, 8, 0.1)', borderColor: '#EAB308', marginBottom: 12 },
+                ]}
+              >
+                <Key size={18} color="#EAB308" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text style={[styles.webPasteHintText, { color: colors.textPrimary }]}>
+                  🔑 <Text style={{ fontWeight: '700' }}>AI-распознавание:</Text> Чтобы сканер читал точный текст и проценты любого банка, добавьте бесплатный ключ Gemini во вкладке «Настройки». Сейчас включен авто-детектор банков.
+                </Text>
+              </View>
+            )}
+
             {Platform.OS === 'web' && (
               <View
                 style={[
