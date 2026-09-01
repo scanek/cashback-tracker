@@ -15,6 +15,7 @@ import { MonthSelector } from '../components/MonthSelector';
 import { BankCard } from '../components/BankCard';
 import { AddCashbackModal } from '../components/AddCashbackModal';
 import { PairDeviceModal } from '../components/PairDeviceModal';
+import { InstallPwaBanner } from '../components/InstallPwaBanner';
 import { confirmDialog } from '../utils/alert';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -136,6 +137,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             : undefined
         }
       />
+
+      <InstallPwaBanner />
 
       <MonthSelector
         currentMonth={currentMonth}

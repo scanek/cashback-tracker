@@ -1,0 +1,32 @@
+{
+  "short_name": "Мои Кэшбеки",
+  "name": "Мои Кэшбеки — Учёт кэшбэка банков",
+  "description": "Сохранение и просмотр категорий кэшбэка банков (Т-Банк, Сбер, Альфа, ВТБ, Яндекс и др.) с AI-распознаванием скриншотов и офлайн-режимом.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/assets/icon.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "ru",
+  "categories": ["finance", "utilities"]
+}

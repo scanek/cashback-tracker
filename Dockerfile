@@ -1,5 +1,5 @@
 # ==========================================
-# Multi-stage Dockerfile for Cashback Hub Web
+# Multi-stage Dockerfile for Cashback Hub Web & PWA
 # ==========================================
 
 # 1. Build Stage
@@ -7,15 +7,19 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first (for layer caching)
+# Install dependencies first
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Copy source code and public assets
 COPY . .
 
 # Build web static bundle
 RUN npx expo export --platform web
+
+# Copy public PWA assets and icons directly into dist
+RUN cp -r public/* dist/ 2>/dev/null || true
+RUN mkdir -p dist/assets && cp -r assets/* dist/assets/ 2>/dev/null || true
 
 # 2. Production Stage (Nginx Alpine)
 FROM nginx:alpine

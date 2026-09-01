@@ -17,6 +17,7 @@ import { CardsManagementScreen } from './src/screens/CardsManagementScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { StorageService } from './src/services/storage';
 import { SyncService } from './src/services/sync';
+import { PwaService } from './src/services/pwa';
 import { NotificationService } from './src/services/notifications';
 import {
   CreditCard,
@@ -42,6 +43,7 @@ function MainAppContent() {
     const bootstrap = async () => {
       await StorageService.initializeDefaults();
       SyncService.startAutoSync();
+      PwaService.init();
       const settings = await StorageService.getSettings();
       if (settings.enableMonthlyReminders) {
         await NotificationService.scheduleMonthlyReminder();
