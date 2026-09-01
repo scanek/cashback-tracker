@@ -12,6 +12,7 @@ import {
 import { Bank, MonthlyCashback, CashbackItem, ScanResult } from '../types';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
+import { resolveBankId } from '../services/gemini';
 import {
   X,
   Check,
@@ -54,11 +55,8 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
 
   useEffect(() => {
     if (scanResult) {
-      if (scanResult.bankId) {
-        setSelectedBankId(scanResult.bankId);
-      } else if (banks.length > 0) {
-        setSelectedBankId(banks[0].id);
-      }
+      const resolved = resolveBankId(scanResult.bankName, scanResult.bankId);
+      setSelectedBankId(resolved.id);
 
       if (typeof scanResult.month === 'number' && scanResult.month >= 0 && scanResult.month <= 11) {
         setMonth(scanResult.month);

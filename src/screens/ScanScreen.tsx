@@ -111,14 +111,14 @@ export const ScanScreen: React.FC = () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Требуется разрешение', 'Разрешите доступ к галерее для выбора скриншотов.');
+        showCustomAlert('Требуется разрешение', 'Разрешите доступ к галерее для выбора скриншотов.');
         return;
       }
 
       const pickerResult = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.8,
+        quality: 0.6,
         base64: true,
       });
 
@@ -127,7 +127,7 @@ export const ScanScreen: React.FC = () => {
         await processImageBase64(asset.base64, asset.uri, asset.mimeType ?? undefined);
       }
     } catch (e: any) {
-      Alert.alert('Ошибка', e.message || 'Не удалось загрузить фото');
+      showCustomAlert('Ошибка', e.message || 'Не удалось загрузить фото');
     }
   };
 
@@ -135,13 +135,13 @@ export const ScanScreen: React.FC = () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Требуется разрешение', 'Разрешите доступ к камере.');
+        showCustomAlert('Требуется разрешение', 'Разрешите доступ к камере.');
         return;
       }
 
       const cameraResult = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.8,
+        quality: 0.6,
         base64: true,
       });
 
@@ -150,7 +150,7 @@ export const ScanScreen: React.FC = () => {
         await processImageBase64(asset.base64, asset.uri, asset.mimeType ?? undefined);
       }
     } catch (e: any) {
-      Alert.alert('Ошибка', e.message || 'Не удалось сделать фото');
+      showCustomAlert('Ошибка', e.message || 'Не удалось сделать фото');
     }
   };
 

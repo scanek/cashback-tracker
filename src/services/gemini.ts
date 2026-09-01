@@ -3,26 +3,82 @@ import { PRESET_BANKS } from '../constants/banks';
 import { SyncService } from './sync';
 import { ImageBankDetector } from '../utils/imageAnalyzer';
 
-const SYSTEM_PROMPT = `Ты — эксперт по распознаванию кэшбэка со скриншотов банковских приложений РФ.
-Определи банк, месяц (0-11, где 0=Янв, 11=Дек), год (${new Date().getFullYear()}) и список категорий кэшбэка с их процентами.
+export function resolveBankId(bankName?: string, bankIdHint?: string): { id: string; name: string } {
+  if (bankIdHint) {
+    const hintClean = bankIdHint.toLowerCase().trim();
+    const found = PRESET_BANKS.find((b) => b.id === hintClean);
+    if (found) return { id: found.id, name: found.shortName };
+  }
 
-Формат JSON:
+  const s = (bankName || '').toLowerCase().trim();
+  if (s.includes('сбер') || s.includes('sber') || s.includes('спасибо')) {
+    return { id: 'sber', name: 'СберБанк' };
+  }
+  if (s.includes('альфа') || s.includes('alfa') || s.includes('а-банк')) {
+    return { id: 'alfa', name: 'Альфа-Банк' };
+  }
+  if (
+    s.includes('тиньк') ||
+    s.includes('т-банк') ||
+    s.includes('тбанк') ||
+    s.includes('т банк') ||
+    s.includes('tinkoff') ||
+    s.includes('t-bank') ||
+    s.includes('tbank')
+  ) {
+    return { id: 'tbank', name: 'Т-Банк' };
+  }
+  if (s.includes('втб') || s.includes('vtb') || s.includes('мультибонус')) {
+    return { id: 'vtb', name: 'ВТБ' };
+  }
+  if (s.includes('озон') || s.includes('ozon')) {
+    return { id: 'ozon', name: 'Ozon Банк' };
+  }
+  if (s.includes('яндекс') || s.includes('yandex') || s.includes('пэй') || s.includes('плюс')) {
+    return { id: 'yandex', name: 'Яндекс Пэй' };
+  }
+  if (s.includes('газпром') || s.includes('гпб') || s.includes('gazprom')) {
+    return { id: 'gpb', name: 'Газпромбанк' };
+  }
+  if (s.includes('райф') || s.includes('raiff')) {
+    return { id: 'raiffeisen', name: 'Райффайзенбанк' };
+  }
+  if (s.includes('совком') || s.includes('халва')) {
+    return { id: 'sovcom', name: 'Совкомбанк' };
+  }
+
+  const matched = PRESET_BANKS.find(
+    (b) => s.includes(b.shortName.toLowerCase()) || b.name.toLowerCase().includes(s)
+  );
+  if (matched) {
+    return { id: matched.id, name: matched.shortName };
+  }
+
+  return { id: 'sber', name: bankName || 'СберБанк' };
+}
+
+const SYSTEM_PROMPT = `Ты — эксперт по распознаванию кэшбэка со скриншотов мобильных приложений банков РФ.
+Внимательно посмотри на скриншот и определи:
+1. Какой банк отображен на скриншоте (bankName и bankId: 'sber' | 'alfa' | 'tbank' | 'vtb' | 'ozon' | 'yandex' | 'gpb' | 'raiffeisen' | 'sovcom').
+2. Месяц (0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год (${new Date().getFullYear()}).
+3. Список всех выбранных или доступных категорий кэшбэка с точным процентом (percent: число) и примечаниями (note).
+
+Верни СТРОГО чистый JSON:
 {
-  "bankName": "Т-Банк",
+  "bankName": "Альфа-Банк",
+  "bankId": "alfa",
   "month": ${new Date().getMonth()},
   "year": ${new Date().getFullYear()},
   "items": [
-    { "category": "Супермаркеты", "percent": 5, "note": "до 3000 ₽" },
-    { "category": "1% на все покупки", "percent": 1 }
+    { "category": "Продукты", "percent": 5, "note": "до 5000 ₽" },
+    { "category": "АЗС", "percent": 5 },
+    { "category": "1% на всё", "percent": 1 }
   ]
 }`;
 
 export class GeminiVisionService {
   private static cachedWorkingModel: string = 'gemini-2.0-flash';
 
-  /**
-   * Clean and normalize API key string
-   */
   static sanitizeApiKey(key: string): string {
     return key
       .replace(/^Bearer\s+/i, '')
@@ -30,9 +86,6 @@ export class GeminiVisionService {
       .trim();
   }
 
-  /**
-   * Test API key and find working model from user's account
-   */
   static async testApiKeyAndGetModel(
     apiKey: string
   ): Promise<{ success: boolean; modelName?: string; message: string }> {
@@ -44,7 +97,7 @@ export class GeminiVisionService {
     // 1. Try Direct Google API
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`,
@@ -79,14 +132,14 @@ export class GeminiVisionService {
         return { success: false, message: `Ошибка Google (${response.status}): ${errorText}` };
       }
     } catch (directErr: any) {
-      console.warn('Direct key test failed or geo-blocked, trying server proxy:', directErr);
+      console.warn('Direct key test failed, trying server proxy:', directErr);
     }
 
     // 2. Try Server Proxy if Direct Fetch was blocked
     try {
       const serverUrl = await SyncService.getServerUrl();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const serverRes = await fetch(`${serverUrl}/api/scan/test-key`, {
         method: 'POST',
@@ -106,12 +159,12 @@ export class GeminiVisionService {
 
     return {
       success: false,
-      message: 'Не удалось связаться с Google AI Studio (возможна сетевая блокировка в вашем регионе). Проверьте ключ и подключение.',
+      message: 'Не удалось связаться с Google AI Studio. Проверьте ключ и интернет.',
     };
   }
 
   /**
-   * Fast High-Performance Screenshot OCR with Server Proxy & Graceful Fallback
+   * Fast High-Performance Screenshot OCR with Robust AI Parsing
    */
   static async analyzeScreenshot(
     base64Image: string,
@@ -132,13 +185,20 @@ export class GeminiVisionService {
         );
         if (directResult) return directResult;
       } catch (directErr: any) {
-        console.warn('Direct Gemini API call failed, trying backup model or server proxy:', directErr.message);
-        
+        console.warn('Direct Gemini API call failed, trying backup model:', directErr.message);
+
         // Try fallback model
         try {
-          const fallbackResult = await this.tryModel('gemini-1.5-flash', base64Image, mimeType, cleanKey);
+          const fallbackResult = await this.tryModel(
+            'gemini-1.5-flash',
+            base64Image,
+            mimeType,
+            cleanKey
+          );
           if (fallbackResult) return fallbackResult;
-        } catch {}
+        } catch (fbErr) {
+          console.warn('Fallback model failed too:', fbErr);
+        }
       }
     }
 
@@ -146,7 +206,7 @@ export class GeminiVisionService {
     try {
       const serverUrl = await SyncService.getServerUrl();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const res = await fetch(`${serverUrl}/api/scan/vision`, {
         method: 'POST',
@@ -163,9 +223,10 @@ export class GeminiVisionService {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.scanResult) {
+          const resolved = resolveBankId(data.scanResult.bankName, data.scanResult.bankId);
           return {
-            bankName: data.scanResult.bankName || 'Банк',
-            bankId: data.scanResult.bankId,
+            bankName: resolved.name,
+            bankId: resolved.id,
             month: data.scanResult.month ?? new Date().getMonth(),
             year: data.scanResult.year ?? new Date().getFullYear(),
             items: data.scanResult.items || [],
@@ -198,7 +259,7 @@ export class GeminiVisionService {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout max
+    const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout for mobile uploads
 
     try {
       const response = await fetch(url, {
@@ -244,13 +305,7 @@ export class GeminiVisionService {
       const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleaned);
 
-      const matchedBank = PRESET_BANKS.find(
-        (b) =>
-          parsed.bankName &&
-          (b.name.toLowerCase().includes(parsed.bankName.toLowerCase()) ||
-            b.shortName.toLowerCase().includes(parsed.bankName.toLowerCase()) ||
-            parsed.bankName.toLowerCase().includes(b.shortName.toLowerCase()))
-      );
+      const resolved = resolveBankId(parsed.bankName, parsed.bankId);
 
       const items = (parsed.items || []).map((item: any) => ({
         category: String(item.category || '').trim(),
@@ -259,8 +314,8 @@ export class GeminiVisionService {
       }));
 
       return {
-        bankName: parsed.bankName || 'Неизвестный банк',
-        bankId: matchedBank?.id,
+        bankName: resolved.name,
+        bankId: resolved.id,
         month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
         year: typeof parsed.year === 'number' ? parsed.year : currentYear,
         items,
@@ -277,15 +332,15 @@ export class GeminiVisionService {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     return {
-      bankName: 'Т-Банк',
-      bankId: 'tbank',
+      bankName: 'СберБанк',
+      bankId: 'sber',
       month: currentMonth,
       year: currentYear,
       items: [
-        { category: 'Супермаркеты', percent: 5 },
-        { category: 'Рестораны и кафе', percent: 5 },
+        { category: 'Кафе и рестораны', percent: 5 },
+        { category: 'Такси', percent: 5 },
         { category: 'Аптеки', percent: 5 },
-        { category: '1% на все покупки', percent: 1 },
+        { category: '0.5% на все покупки', percent: 0.5 },
       ],
       confidence: 1.0,
       rawText: 'Режим редактирования скриншота',
