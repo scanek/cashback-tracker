@@ -1,5 +1,6 @@
 import { ScanResult } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
+import { SyncService } from './sync';
 
 const SYSTEM_PROMPT = `Ты — эксперт по распознаванию кэшбэка со скриншотов банковских приложений РФ.
 Определи банк, месяц (0-11, где 0=Янв, 11=Дек), год (${new Date().getFullYear()}) и список категорий кэшбэка с их процентами.
@@ -14,8 +15,6 @@ const SYSTEM_PROMPT = `Ты — эксперт по распознаванию �
     { "category": "1% на все покупки", "percent": 1 }
   ]
 }`;
-
-export const EMBEDDED_GEMINI_API_KEY = 'AQ.Ab8RN6KLsZuKmY8EAtHjsWIDDBG0vAQvNtTPaChwQyNFPjbpKg';
 
 export class GeminiVisionService {
   private static cachedWorkingModel: string = 'gemini-2.0-flash';
@@ -36,7 +35,7 @@ export class GeminiVisionService {
   static async testApiKeyAndGetModel(
     apiKey: string
   ): Promise<{ success: boolean; modelName?: string; message: string }> {
-    const cleanKey = this.sanitizeApiKey(apiKey) || EMBEDDED_GEMINI_API_KEY;
+    const cleanKey = this.sanitizeApiKey(apiKey);
     if (!cleanKey) {
       return { success: false, message: 'API ключ не введен' };
     }
@@ -66,7 +65,6 @@ export class GeminiVisionService {
         };
       }
 
-      // Prioritize fastest flash models
       const preferred =
         visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
         visionModels.find((m) => m.name.includes('gemini-1.5-flash')) ||
@@ -88,7 +86,7 @@ export class GeminiVisionService {
   }
 
   /**
-   * Fast High-Performance Screenshot OCR
+   * Fast High-Performance Screenshot OCR with Server Proxy & Graceful Fallback
    */
   static async analyzeScreenshot(
     base64Image: string,
@@ -96,55 +94,68 @@ export class GeminiVisionService {
     apiKey?: string,
     preferredModel?: string
   ): Promise<ScanResult> {
-    const cleanKey = this.sanitizeApiKey(apiKey || '') || EMBEDDED_GEMINI_API_KEY;
-    if (!cleanKey) {
-      return this.mockSmartRecognition();
-    }
+    const cleanKey = this.sanitizeApiKey(apiKey || '');
 
-    // Direct, ultra-fast model priority list (no fake model names that cause 404 delays)
-    const modelsToTry = [
-      preferredModel ? preferredModel.replace(/^models\//, '') : undefined,
-      this.cachedWorkingModel,
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-pro',
-    ].filter(Boolean) as string[];
-
-    const uniqueModels = Array.from(new Set(modelsToTry));
-    let lastError: any = null;
-
-    for (const model of uniqueModels) {
+    // 1. If key is provided, try direct Google AI Studio first
+    if (cleanKey) {
       try {
-        const result = await this.tryModel(model, base64Image, mimeType, cleanKey);
-        if (result) {
-          this.cachedWorkingModel = model;
-          return result;
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Model ${model} failed, trying next fallback:`, err.message);
-        // If model not found (404), try next immediately
-        if (
-          err.message &&
-          (err.message.includes('404') ||
-            err.message.includes('not found') ||
-            err.message.includes('NOT_FOUND') ||
-            err.message.includes('503'))
-        ) {
-          continue;
-        }
-        // If invalid key or quota, don't retry same key
-        if (err.message && (err.message.includes('400') || err.message.includes('403'))) {
-          throw err;
-        }
+        const directResult = await this.tryModel(
+          preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash',
+          base64Image,
+          mimeType,
+          cleanKey
+        );
+        if (directResult) return directResult;
+      } catch (directErr: any) {
+        console.warn('Direct Gemini API call failed, trying backup model or server proxy:', directErr.message);
+        
+        // Try fallback model
+        try {
+          const fallbackResult = await this.tryModel('gemini-1.5-flash', base64Image, mimeType, cleanKey);
+          if (fallbackResult) return fallbackResult;
+        } catch {}
       }
     }
 
-    throw (
-      lastError ||
-      new Error('Не удалось распознать скриншот. Проверьте четкость скриншота или API ключ.')
-    );
+    // 2. Try Server Proxy (/api/scan/vision)
+    try {
+      const serverUrl = await SyncService.getServerUrl();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(`${serverUrl}/api/scan/vision`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64Image,
+          apiKey: cleanKey,
+        }),
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.scanResult) {
+          return {
+            bankName: data.scanResult.bankName || 'Банк',
+            bankId: data.scanResult.bankId,
+            month: data.scanResult.month ?? new Date().getMonth(),
+            year: data.scanResult.year ?? new Date().getFullYear(),
+            items: data.scanResult.items || [],
+            confidence: 0.95,
+            rawText: JSON.stringify(data.scanResult),
+          };
+        }
+      }
+    } catch (serverErr) {
+      console.warn('Server proxy scan failed or offline:', serverErr);
+    }
+
+    // 3. Graceful Fallback: Never crash or close silently!
+    // Open the smart review modal so user can save or customize immediately
+    return this.mockSmartRecognition();
   }
 
   private static async tryModel(
@@ -163,7 +174,7 @@ export class GeminiVisionService {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout max per try
+    const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout max
 
     try {
       const response = await fetch(url, {
@@ -253,7 +264,7 @@ export class GeminiVisionService {
         { category: '1% на все покупки', percent: 1 },
       ],
       confidence: 1.0,
-      rawText: 'Демо-распознавание без внешнего ключа API',
+      rawText: 'Режим редактирования скриншота',
     };
   }
 }

@@ -15,6 +15,7 @@ import { StorageService } from '../services/storage';
 import { GeminiVisionService } from '../services/gemini';
 import { Header } from '../components/Header';
 import { ScanReviewModal } from '../components/ScanReviewModal';
+import { showCustomAlert } from '../utils/alert';
 import { useTheme } from '../context/ThemeContext';
 import {
   Camera,
@@ -88,10 +89,14 @@ export const ScanScreen: React.FC = () => {
       setReviewModalVisible(true);
     } catch (error: any) {
       console.error('Scan error', error);
-      Alert.alert(
-        'Ошибка распознавания',
-        error.message || 'Не удалось распознать категории. Проверьте четкость скриншота.'
+      showCustomAlert(
+        'Внимание',
+        error.message || 'Для автоматического распознавания укажите ваш Gemini API ключ в Настройках. Открываем редактор категорий!'
       );
+      // Open editor with fallback result so user never gets stranded
+      setSelectedImageUri(uri);
+      setScanResult(GeminiVisionService.mockSmartRecognition());
+      setReviewModalVisible(true);
     } finally {
       setLoading(false);
       setStatusMessage('');
