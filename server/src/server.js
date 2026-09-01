@@ -364,7 +364,7 @@ const server = http.createServer(async (req, res) => {
         const currentYear = new Date().getFullYear();
         const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`;
         const reqPayload = {
           contents: [
             {
