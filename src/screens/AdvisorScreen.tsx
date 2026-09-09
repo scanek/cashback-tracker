@@ -230,6 +230,44 @@ const MANDATORY_CATEGORIES = [
   },
 ];
 
+function getCategoryPriority(categoryName: string): number {
+  const lower = categoryName.toLowerCase();
+  if (
+    lower.includes('супермаркет') ||
+    lower.includes('продукт') ||
+    lower.includes('еда') ||
+    lower.includes('пятерочк') ||
+    lower.includes('магнит') ||
+    lower.includes('перекрест') ||
+    lower.includes('лент') ||
+    lower.includes('ашан')
+  ) {
+    return 1; // 🛒 #1 Супермаркеты
+  }
+  if (
+    lower.includes('аптек') ||
+    lower.includes('лекарств') ||
+    lower.includes('здоровь') ||
+    lower.includes('медицин') ||
+    lower.includes('еаптек')
+  ) {
+    return 2; // 💊 #2 Аптеки
+  }
+  if (
+    lower.includes('азс') ||
+    lower.includes('топлив') ||
+    lower.includes('бензин') ||
+    lower.includes('заправк') ||
+    lower.includes('лукойл') ||
+    lower.includes('газпром') ||
+    lower.includes('роснефт') ||
+    lower.includes('teboil')
+  ) {
+    return 3; // ⛽ #3 АЗС и Топливо
+  }
+  return 99; // Все остальные категории
+}
+
 interface GroupedCategory {
   category: string;
   maxPercent: number;
@@ -434,24 +472,31 @@ export const AdvisorScreen: React.FC = () => {
       }
     });
 
+    // 3. SORT: Supermarkets (#1), Pharmacies (#2), Fuel (#3) FIRST, then by highest %
     return Array.from(map.values())
       .map((group) => ({
         ...group,
         offers: group.offers.sort((a, b) => b.item.percent - a.item.percent),
       }))
-      .sort((a, b) => b.maxPercent - a.maxPercent);
+      .sort((a, b) => {
+        const prioA = getCategoryPriority(a.category);
+        const prioB = getCategoryPriority(b.category);
+        if (prioA !== prioB) {
+          return prioA - prioB; // 1 (Supermarkets), 2 (Pharmacies), 3 (Fuel), then 99
+        }
+        return b.maxPercent - a.maxPercent; // highest % first within other categories
+      });
   }, [filteredOffers, defaultFallbackOffers]);
 
   const dynamicSuggestions = useMemo(() => {
-    const categoryMap = new Map<string, { category: string; maxPercent: number }>();
+    const list: Array<{ category: string; maxPercent: number }> = [];
     groupedCategories.forEach((group) => {
-      categoryMap.set(group.category, {
+      list.push({
         category: group.category,
         maxPercent: group.maxPercent,
       });
     });
 
-    const list = Array.from(categoryMap.values()).sort((a, b) => b.maxPercent - a.maxPercent);
     if (list.length === 0) {
       return POPULAR_SEARCH_QUERIES.map((q) => ({ category: q, maxPercent: 0 }));
     }
@@ -459,9 +504,15 @@ export const AdvisorScreen: React.FC = () => {
   }, [groupedCategories]);
 
   const spotlightOffers = useMemo(() => {
-    return groupedCategories
-      .flatMap((g) => g.offers)
-      .sort((a, b) => b.item.percent - a.item.percent);
+    const all = groupedCategories.flatMap((g) => g.offers);
+    return all.sort((a, b) => {
+      const prioA = getCategoryPriority(a.item.category);
+      const prioB = getCategoryPriority(b.item.category);
+      if (prioA !== prioB) {
+        return prioA - prioB;
+      }
+      return b.item.percent - a.item.percent;
+    });
   }, [groupedCategories]);
 
   const activeMonthBanks = useMemo(() => {
