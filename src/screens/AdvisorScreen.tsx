@@ -15,7 +15,7 @@ import { CashbackMatcher } from '../services/matcher';
 import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
 import { POPULAR_SEARCH_QUERIES } from '../constants/categories';
-import { MONTH_NAMES_RU } from '../constants/banks';
+import { MONTH_NAMES_RU, PRESET_BANKS } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
 import {
   Search,
@@ -77,47 +77,70 @@ export const AdvisorScreen: React.FC = () => {
     }
   }, [query, banks, cashbacks]);
 
+  const resolveBank = useCallback(
+    (bankId: string): Bank => {
+      const found = banks.find((b) => b.id === bankId) || PRESET_BANKS.find((p) => p.id === bankId);
+      if (found) return found;
+      return {
+        id: bankId,
+        name: bankId,
+        shortName: bankId,
+        primaryColor: '#38BDF8',
+        textColor: '#FFFFFF',
+        iconName: 'CreditCard',
+        isActive: true,
+      };
+    },
+    [banks]
+  );
+
   // Aggregate ALL active offers for the selected month (no slicing)
-  const allOffers = cashbacks
-    .flatMap((cb) => {
-      const bank = banks.find((b) => b.id === cb.bankId);
-      if (!bank || !bank.isActive) return [];
-      return (cb.items || []).map((item) => ({
-        bank,
-        item,
-        isShared: Boolean(cb.isShared),
-        sharedByName: cb.sharedByName,
-      }));
-    })
-    .sort((a, b) => {
-      if (b.item.percent !== a.item.percent) {
-        return b.item.percent - a.item.percent;
-      }
-      return a.bank.name.localeCompare(b.bank.name);
-    });
+  const allOffers = React.useMemo(() => {
+    return cashbacks
+      .flatMap((cb) => {
+        const bank = resolveBank(cb.bankId);
+        return (cb.items || []).map((item) => ({
+          bank,
+          item,
+          isShared: Boolean(cb.isShared),
+          sharedByName: cb.sharedByName,
+        }));
+      })
+      .sort((a, b) => {
+        if (b.item.percent !== a.item.percent) {
+          return b.item.percent - a.item.percent;
+        }
+        return a.bank.name.localeCompare(b.bank.name);
+      });
+  }, [cashbacks, resolveBank]);
 
   // Filter offers by bank and owner
-  const filteredOffers = allOffers.filter((o) => {
-    const matchesBank = selectedBankFilter === 'all' || o.bank.id === selectedBankFilter;
-    const matchesOwner =
-      ownerFilter === 'all'
-        ? true
-        : ownerFilter === 'shared'
-        ? o.isShared
-        : !o.isShared;
-    return matchesBank && matchesOwner;
-  });
+  const filteredOffers = React.useMemo(() => {
+    return allOffers.filter((o) => {
+      const matchesBank = selectedBankFilter === 'all' || o.bank.id === selectedBankFilter;
+      const matchesOwner =
+        ownerFilter === 'all'
+          ? true
+          : ownerFilter === 'shared'
+          ? o.isShared
+          : !o.isShared;
+      return matchesBank && matchesOwner;
+    });
+  }, [allOffers, selectedBankFilter, ownerFilter]);
 
-  const filteredResults = results.filter((r) => {
-    if (ownerFilter === 'my') return !r.isShared;
-    if (ownerFilter === 'shared') return Boolean(r.isShared);
-    return true;
-  });
+  const filteredResults = React.useMemo(() => {
+    return results.filter((r) => {
+      if (ownerFilter === 'my') return !r.isShared;
+      if (ownerFilter === 'shared') return Boolean(r.isShared);
+      return true;
+    });
+  }, [results, ownerFilter]);
 
   // Active banks that have cashbacks in this month
-  const activeBanksWithCashback = banks.filter((b) =>
-    cashbacks.some((c) => c.bankId === b.id && c.items && c.items.length > 0)
-  );
+  const activeBanksWithCashback = React.useMemo(() => {
+    const bankIds = new Set(cashbacks.filter((c) => c.items && c.items.length > 0).map((c) => c.bankId));
+    return Array.from(bankIds).map((id) => resolveBank(id));
+  }, [cashbacks, resolveBank]);
 
   const sharedCount = allOffers.filter((o) => o.isShared).length;
 

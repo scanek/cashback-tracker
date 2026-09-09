@@ -1,5 +1,6 @@
 import { Bank, MonthlyCashback, SmartMatchResult } from '../types';
 import { STANDARD_CATEGORIES } from '../constants/categories';
+import { PRESET_BANKS } from '../constants/banks';
 
 export class CashbackMatcher {
   /**
@@ -13,24 +14,35 @@ export class CashbackMatcher {
     const cleanQuery = query.toLowerCase().trim();
     if (!cleanQuery) return [];
 
-    const activeBankMap = new Map<string, Bank>();
-    banks.filter((b) => b.isActive).forEach((b) => activeBankMap.set(b.id, b));
+    const resolveBank = (bankId: string): Bank => {
+      const found = banks.find((b) => b.id === bankId) || PRESET_BANKS.find((p) => p.id === bankId);
+      if (found) return found;
+      return {
+        id: bankId,
+        name: bankId,
+        shortName: bankId,
+        primaryColor: '#38BDF8',
+        textColor: '#FFFFFF',
+        iconName: 'CreditCard',
+        isActive: true,
+      };
+    };
 
     // 1. Identify which standard predefined categories match the search query
     const matchedCategories = STANDARD_CATEGORIES.filter((cat) => {
       const catNameLower = cat.name.toLowerCase();
       if (catNameLower.includes(cleanQuery) || cleanQuery.includes(catNameLower)) return true;
       return cat.keywords.some(
-        (kw) => cleanQuery.includes(kw) || kw.includes(cleanQuery)
+        (kw) => cleanQuery.includes(kw.toLowerCase()) || kw.toLowerCase().includes(cleanQuery)
       );
     });
 
+    const queryWords = cleanQuery.split(/[\s,.;:!?/\\+\-_]+/).filter((w) => w.length >= 3);
     const matches: SmartMatchResult[] = [];
 
     // Check every bank's cashback items
     for (const cb of cashbacks) {
-      const bank = activeBankMap.get(cb.bankId);
-      if (!bank) continue;
+      const bank = resolveBank(cb.bankId);
 
       for (const item of cb.items || []) {
         const itemCatLower = item.category.toLowerCase();
@@ -42,13 +54,23 @@ export class CashbackMatcher {
           matchScore = 100;
           reason = `Прямое совпадение с категорией «${item.category}»`;
         }
+        // Word stem matching (e.g. "аптека" matches "аптеки", "ресторан" matches "рестораны")
+        else if (
+          queryWords.some((qw) => {
+            const stem = qw.length > 4 ? qw.slice(0, qw.length - 1) : qw;
+            return itemCatLower.includes(stem);
+          })
+        ) {
+          matchScore = 90;
+          reason = `Совпадение по категории «${item.category}»`;
+        }
         // Match through category synonyms & keywords
         else {
           for (const cat of matchedCategories) {
             const catNameLower = cat.name.toLowerCase();
             const matchesCat =
               itemCatLower.includes(catNameLower) ||
-              cat.keywords.some((kw) => itemCatLower.includes(kw));
+              cat.keywords.some((kw) => itemCatLower.includes(kw.toLowerCase()));
 
             if (matchesCat) {
               matchScore = 80;
@@ -74,8 +96,7 @@ export class CashbackMatcher {
     // If no direct category matched, add default "1% на все" cards
     if (matches.length === 0) {
       for (const cb of cashbacks) {
-        const bank = activeBankMap.get(cb.bankId);
-        if (!bank) continue;
+        const bank = resolveBank(cb.bankId);
 
         const allPurchasesItem = (cb.items || []).find(
           (i) =>
