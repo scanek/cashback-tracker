@@ -380,73 +380,44 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </View>
 
         {/* Mobile App & PWA Card (Compact) */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder, paddingVertical: 12 },
-          ]}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 180 }}>
-              <Smartphone size={18} color="#38BDF8" style={{ marginRight: 8 }} />
-              <View>
-                <Text style={[styles.cardTitle, { color: colors.textPrimary, fontSize: 13 }]}>
-                  {PwaService.isStandalone() ? 'Приложение установлено' : 'Мобильное приложение'}
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  {PwaService.isStandalone() ? 'Работает на весь экран в офлайн-режиме' : 'Установка на экран телефона (PWA / APK)'}
-                </Text>
+        {!PwaService.isStandalone() && Platform.OS === 'web' && (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder, paddingVertical: 12 },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 180 }}>
+                <Smartphone size={18} color="#38BDF8" style={{ marginRight: 8 }} />
+                <View>
+                  <Text style={[styles.cardTitle, { color: colors.textPrimary, fontSize: 13 }]}>
+                    Установить приложение
+                  </Text>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                    Быстрый запуск с домашнего экрана и работа офлайн (PWA)
+                  </Text>
+                </View>
               </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {!PwaService.isStandalone() && Platform.OS === 'web' && (
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: '#38BDF8',
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                  onPress={() => PwaService.promptInstall()}
-                  activeOpacity={0.8}
-                >
-                  <Download size={14} color="#0F172A" style={{ marginRight: 4 }} />
-                  <Text style={{ color: '#0F172A', fontSize: 11, fontWeight: '800' }}>Установить</Text>
-                </TouchableOpacity>
-              )}
 
               <TouchableOpacity
                 style={{
-                  backgroundColor: colors.inputBackground,
-                  borderColor: colors.inputBorder,
-                  borderWidth: 1,
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
+                  backgroundColor: '#38BDF8',
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
                   borderRadius: 8,
                   flexDirection: 'row',
                   alignItems: 'center',
                 }}
-                onPress={() => {
-                  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                    window.open('https://github.com/scanek/cashback-tracker/releases', '_blank');
-                  } else {
-                    Alert.alert(
-                      'Android APK',
-                      'Автономный файл Мои_Кэшбеки.apk собирается скриптом build-apk-local.bat или доступен в GitHub Releases.'
-                    );
-                  }
-                }}
+                onPress={() => PwaService.promptInstall()}
                 activeOpacity={0.8}
               >
-                <ExternalLink size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
-                <Text style={{ color: colors.accentBlue, fontSize: 11, fontWeight: '700' }}>APK ↗</Text>
+                <Download size={14} color="#0F172A" style={{ marginRight: 5 }} />
+                <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '800' }}>Установить</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Operations & Sharing Card */}
         <View
