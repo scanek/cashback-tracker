@@ -99,11 +99,11 @@ export class SyncService {
   public static async getPairingUrl(): Promise<string> {
     const key = await this.getSyncKey();
     const server = await this.getServerUrl();
-    let host = 'localhost';
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-      host = window.location.hostname;
+    let baseUrl = 'http://localhost:8085';
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+      baseUrl = window.location.origin;
     }
-    return `http://${host}:8085/?pair=${encodeURIComponent(key)}&server=${encodeURIComponent(server)}`;
+    return `${baseUrl}/?pair=${encodeURIComponent(key)}&server=${encodeURIComponent(server)}`;
   }
 
   /**
