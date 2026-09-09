@@ -1,5 +1,6 @@
 services:
   cashback-hub-server:
+    image: ghcr.io/scanek/cashback-tracker-server:latest
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -15,6 +16,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
 
   cashback-hub-web:
+    image: ghcr.io/scanek/cashback-tracker-web:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -26,3 +28,16 @@ services:
       - NODE_ENV=production
     depends_on:
       - cashback-hub-server
+
+  # Автоматическое фоновое обновление контейнеров при публикации новых образов в GitHub
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: cashback-hub-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300 # Проверка каждые 5 минут
+      - WATCHTOWER_CLEANUP=true      # Авто-удаление старых образов для экономии диска
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+    command: cashback-hub-web cashback-hub-server
