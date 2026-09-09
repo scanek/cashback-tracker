@@ -174,39 +174,11 @@ export class GeminiVisionService {
   ): Promise<ScanResult> {
     const cleanKey = this.sanitizeApiKey(apiKey || '');
 
-    // 1. If key is provided, try direct Google AI Studio first
-    if (cleanKey) {
-      try {
-        const directResult = await this.tryModel(
-          preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash',
-          base64Image,
-          mimeType,
-          cleanKey
-        );
-        if (directResult) return directResult;
-      } catch (directErr: any) {
-        console.warn('Direct Gemini API call failed, trying backup model:', directErr.message);
-
-        // Try fallback model
-        try {
-          const fallbackResult = await this.tryModel(
-            'gemini-1.5-flash',
-            base64Image,
-            mimeType,
-            cleanKey
-          );
-          if (fallbackResult) return fallbackResult;
-        } catch (fbErr) {
-          console.warn('Fallback model failed too:', fbErr);
-        }
-      }
-    }
-
-    // 2. Try Server Proxy (/api/scan/vision)
+    // 1. Try Server Proxy first (/api/scan/vision) — Bypasses client-side Geo-blocking & CORS
     try {
       const serverUrl = await SyncService.getServerUrl();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(`${serverUrl}/api/scan/vision`, {
         method: 'POST',
@@ -236,7 +208,33 @@ export class GeminiVisionService {
         }
       }
     } catch (serverErr) {
-      console.warn('Server proxy scan failed or offline:', serverErr);
+      console.warn('Server proxy scan failed or offline, trying direct Google API:', serverErr);
+    }
+
+    // 2. Direct Google AI Studio fallback (if client has VPN or non-blocked IP)
+    if (cleanKey) {
+      try {
+        const directResult = await this.tryModel(
+          preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash',
+          base64Image,
+          mimeType,
+          cleanKey
+        );
+        if (directResult) return directResult;
+      } catch (directErr: any) {
+        console.warn('Direct Gemini API call failed:', directErr.message);
+        try {
+          const fallbackResult = await this.tryModel(
+            'gemini-1.5-flash',
+            base64Image,
+            mimeType,
+            cleanKey
+          );
+          if (fallbackResult) return fallbackResult;
+        } catch (fbErr) {
+          console.warn('Fallback model failed too:', fbErr);
+        }
+      }
     }
 
     // 3. Graceful Fallback: Detect bank by screenshot color and signature!

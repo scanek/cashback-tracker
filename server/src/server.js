@@ -405,8 +405,8 @@ const server = http.createServer(async (req, res) => {
               parts: [
                 { text: getVisionSystemPrompt(currentYear) },
                 {
-                  inline_data: {
-                    mime_type: 'image/jpeg',
+                  inlineData: {
+                    mimeType: 'image/jpeg',
                     data: cleanBase64,
                   },
                 },
@@ -415,7 +415,8 @@ const server = http.createServer(async (req, res) => {
           ],
           generationConfig: {
             temperature: 0.1,
-            response_mime_type: 'application/json',
+            maxOutputTokens: 1024,
+            responseMimeType: 'application/json',
           },
         };
 
