@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
-import { Bank, MonthlyCashback, SmartMatchResult, CashbackItem } from '../types';
+import { Bank, MonthlyCashback, SmartMatchResult, CashbackItem, AdvisorViewMode } from '../types';
 import { StorageService } from '../services/storage';
 import { SyncService } from '../services/sync';
 import { CashbackMatcher } from '../services/matcher';
@@ -41,6 +41,11 @@ import {
   Dog,
   Plane,
   ShoppingBag,
+  List,
+  CreditCard,
+  LayoutGrid,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 
 interface CategoryVisual {
@@ -222,6 +227,7 @@ export const AdvisorScreen: React.FC = () => {
   const { colors } = useTheme();
   const [query, setQuery] = useState<string>('');
   const [ownerFilter, setOwnerFilter] = useState<'all' | 'my' | 'shared'>('all');
+  const [viewMode, setViewMode] = useState<AdvisorViewMode>('compact');
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -230,6 +236,8 @@ export const AdvisorScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [partnerName, setPartnerName] = useState<string>('Партнер');
   const [selectedCategory, setSelectedCategory] = useState<GroupedCategory | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const allBanks = await StorageService.getBanks();
@@ -238,6 +246,9 @@ export const AdvisorScreen: React.FC = () => {
     setBanks(allBanks);
     setCashbacks(currentCashbacks);
     setPartnerName(settings.partnerName || 'Партнер');
+    if (settings.advisorViewMode) {
+      setViewMode(settings.advisorViewMode);
+    }
   }, [currentMonth, currentYear]);
 
   useEffect(() => {
@@ -254,6 +265,11 @@ export const AdvisorScreen: React.FC = () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const handleSelectViewMode = async (mode: AdvisorViewMode) => {
+    setViewMode(mode);
+    await StorageService.saveSettings({ advisorViewMode: mode });
   };
 
   useEffect(() => {
@@ -368,6 +384,26 @@ export const AdvisorScreen: React.FC = () => {
       .sort((a, b) => b.maxPercent - a.maxPercent);
   }, [filteredOffers]);
 
+  const activeMonthBanks = useMemo(() => {
+    const map = new Map<string, { bank: Bank; count: number; maxPercent: number }>();
+    filteredOffers.forEach((o) => {
+      const existing = map.get(o.bank.id);
+      if (existing) {
+        existing.count += 1;
+        existing.maxPercent = Math.max(existing.maxPercent, o.item.percent);
+      } else {
+        map.set(o.bank.id, { bank: o.bank, count: 1, maxPercent: o.item.percent });
+      }
+    });
+    return Array.from(map.values());
+  }, [filteredOffers]);
+
+  useEffect(() => {
+    if (activeMonthBanks.length > 0 && !selectedBankId) {
+      setSelectedBankId(activeMonthBanks[0].bank.id);
+    }
+  }, [activeMonthBanks, selectedBankId]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
@@ -384,12 +420,127 @@ export const AdvisorScreen: React.FC = () => {
         }}
       />
 
-      {(sharedCount > 0 || (partnerName && partnerName !== 'Партнер')) && (
-        <View style={styles.ownerFilterWrap}>
+      <View style={styles.topControlsWrap}>
+        <View
+          style={[
+            styles.viewModeSwitcher,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.viewModeBtn,
+              viewMode === 'compact' && [
+                styles.viewModeBtnActive,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accent },
+              ],
+            ]}
+            onPress={() => handleSelectViewMode('compact')}
+            activeOpacity={0.7}
+          >
+            <List
+              size={13}
+              color={viewMode === 'compact' ? colors.accent : colors.textMuted}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.viewModeBtnText,
+                { color: viewMode === 'compact' ? colors.accent : colors.textSecondary },
+                viewMode === 'compact' && styles.viewModeBtnTextActive,
+              ]}
+            >
+              Список
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.viewModeBtn,
+              viewMode === 'spotlight' && [
+                styles.viewModeBtnActive,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accent },
+              ],
+            ]}
+            onPress={() => handleSelectViewMode('spotlight')}
+            activeOpacity={0.7}
+          >
+            <Search
+              size={13}
+              color={viewMode === 'spotlight' ? colors.accent : colors.textMuted}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.viewModeBtnText,
+                { color: viewMode === 'spotlight' ? colors.accent : colors.textSecondary },
+                viewMode === 'spotlight' && styles.viewModeBtnTextActive,
+              ]}
+            >
+              Топ-%
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.viewModeBtn,
+              viewMode === 'by_bank' && [
+                styles.viewModeBtnActive,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accent },
+              ],
+            ]}
+            onPress={() => handleSelectViewMode('by_bank')}
+            activeOpacity={0.7}
+          >
+            <CreditCard
+              size={13}
+              color={viewMode === 'by_bank' ? colors.accent : colors.textMuted}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.viewModeBtnText,
+                { color: viewMode === 'by_bank' ? colors.accent : colors.textSecondary },
+                viewMode === 'by_bank' && styles.viewModeBtnTextActive,
+              ]}
+            >
+              Банки
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.viewModeBtn,
+              viewMode === 'grid' && [
+                styles.viewModeBtnActive,
+                { backgroundColor: colors.inputBackground, borderColor: colors.accent },
+              ],
+            ]}
+            onPress={() => handleSelectViewMode('grid')}
+            activeOpacity={0.7}
+          >
+            <LayoutGrid
+              size={13}
+              color={viewMode === 'grid' ? colors.accent : colors.textMuted}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.viewModeBtnText,
+                { color: viewMode === 'grid' ? colors.accent : colors.textSecondary },
+                viewMode === 'grid' && styles.viewModeBtnTextActive,
+              ]}
+            >
+              Плитки
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {(sharedCount > 0 || (partnerName && partnerName !== 'Партнер')) && (
           <View
             style={[
               styles.ownerFilterContainer,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              { backgroundColor: colors.card, borderColor: colors.cardBorder, marginTop: 4 },
             ]}
           >
             <TouchableOpacity
@@ -404,9 +555,9 @@ export const AdvisorScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <Users
-                size={12}
+                size={11}
                 color={ownerFilter === 'all' ? colors.accent : colors.textMuted}
-                style={{ marginRight: 4 }}
+                style={{ marginRight: 3 }}
               />
               <Text
                 style={[
@@ -431,9 +582,9 @@ export const AdvisorScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <User
-                size={12}
+                size={11}
                 color={ownerFilter === 'my' ? colors.accentBlue : colors.textMuted}
-                style={{ marginRight: 4 }}
+                style={{ marginRight: 3 }}
               />
               <Text
                 style={[
@@ -458,10 +609,10 @@ export const AdvisorScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <Heart
-                size={12}
+                size={11}
                 color={ownerFilter === 'shared' ? '#EC4899' : colors.textMuted}
                 fill={ownerFilter === 'shared' ? '#EC4899' : 'transparent'}
-                style={{ marginRight: 4 }}
+                style={{ marginRight: 3 }}
               />
               <Text
                 style={[
@@ -474,8 +625,8 @@ export const AdvisorScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
       <ScrollView
         style={styles.content}
@@ -659,55 +810,84 @@ export const AdvisorScreen: React.FC = () => {
               })
             )}
           </View>
-        ) : (
-          <View style={styles.gridSection}>
+        ) : groupedCategories.length === 0 ? (
+          <View
+            style={[
+              styles.noOffersCard,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
+            <Sparkles size={28} color={colors.accent} style={{ marginBottom: 8 }} />
+            <Text style={[styles.noOffersText, { color: colors.textPrimary }]}>
+              Нет категорий на этот месяц
+            </Text>
+            <Text style={[styles.noOffersSub, { color: colors.textSecondary }]}>
+              Отсканируйте скриншоты банков в разделе «Кэшбэк».
+            </Text>
+          </View>
+        ) : viewMode === 'compact' ? (
+          <View style={styles.compactSection}>
             <View style={styles.sectionHeader}>
               <TrendingUp size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                Категории месяца ({groupedCategories.length})
+                Кэшбэк по категориям ({groupedCategories.length})
               </Text>
             </View>
 
-            {groupedCategories.length === 0 ? (
-              <View
-                style={[
-                  styles.noOffersCard,
-                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
-                ]}
-              >
-                <Sparkles size={28} color={colors.accent} style={{ marginBottom: 8 }} />
-                <Text style={[styles.noOffersText, { color: colors.textPrimary }]}>
-                  Нет категорий на этот месяц
-                </Text>
-                <Text style={[styles.noOffersSub, { color: colors.textSecondary }]}>
-                  Отсканируйте скриншоты банков в разделе «Кэшбэк».
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.gridContainer}>
-                {groupedCategories.map((group) => {
-                  const visual = getCategoryVisual(group.category);
-                  const VisualIcon = visual.Icon;
-                  const leader = group.offers[0];
-                  const hasMultiple = group.offers.length > 1;
+            <View style={styles.compactList}>
+              {groupedCategories.map((group) => {
+                const isExpanded = expandedCategory === group.category;
+                const visual = getCategoryVisual(group.category);
+                const VisualIcon = visual.Icon;
+                const leader = group.offers[0];
+                const hasMultiple = group.offers.length > 1;
 
-                  return (
+                return (
+                  <View
+                    key={group.category}
+                    style={[
+                      styles.compactCardWrapper,
+                      { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                      isExpanded && { borderColor: colors.accent, borderWidth: 1.5 },
+                    ]}
+                  >
                     <TouchableOpacity
-                      key={group.category}
-                      style={[
-                        styles.gridTile,
-                        { backgroundColor: colors.card, borderColor: colors.cardBorder },
-                      ]}
-                      onPress={() => setSelectedCategory(group)}
-                      activeOpacity={0.8}
+                      style={styles.compactRow}
+                      onPress={() =>
+                        setExpandedCategory(isExpanded ? null : group.category)
+                      }
+                      activeOpacity={0.7}
                     >
-                      <View style={styles.tileTopRow}>
-                        <View style={[styles.tileIconCircle, { backgroundColor: visual.bg }]}>
-                          <VisualIcon size={18} color={visual.color} />
-                        </View>
+                      <View style={[styles.compactIconCircle, { backgroundColor: visual.bg }]}>
+                        <VisualIcon size={16} color={visual.color} />
+                      </View>
+
+                      <View style={styles.compactTitleWrap}>
+                        <Text
+                          style={[styles.compactCategoryName, { color: colors.textPrimary }]}
+                          numberOfLines={1}
+                        >
+                          {group.category}
+                        </Text>
+                      </View>
+
+                      <View style={styles.compactRightWrap}>
                         <View
                           style={[
-                            styles.tilePercentBadge,
+                            styles.compactBankDot,
+                            { backgroundColor: leader?.bank.primaryColor || '#38BDF8' },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.compactBankName, { color: colors.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {leader?.bank.shortName || leader?.bank.name}
+                        </Text>
+
+                        <View
+                          style={[
+                            styles.compactPercentBadge,
                             {
                               backgroundColor:
                                 group.maxPercent >= 10
@@ -718,7 +898,7 @@ export const AdvisorScreen: React.FC = () => {
                         >
                           <Text
                             style={[
-                              styles.tilePercentText,
+                              styles.compactPercentText,
                               {
                                 color: group.maxPercent >= 10 ? '#0F172A' : '#38BDF8',
                               },
@@ -727,51 +907,452 @@ export const AdvisorScreen: React.FC = () => {
                             {group.maxPercent}%
                           </Text>
                         </View>
-                      </View>
-
-                      <Text
-                        style={[styles.tileCategoryTitle, { color: colors.textPrimary }]}
-                        numberOfLines={2}
-                      >
-                        {group.category}
-                      </Text>
-
-                      <View style={styles.tileBottomRow}>
-                        <View style={styles.tileLeaderWrap}>
-                          <View
-                            style={[
-                              styles.tileBankDot,
-                              { backgroundColor: leader?.bank.primaryColor || '#38BDF8' },
-                            ]}
-                          />
-                          <Text
-                            style={[styles.tileBankName, { color: colors.textSecondary }]}
-                            numberOfLines={1}
-                          >
-                            {leader?.bank.shortName || leader?.bank.name}
-                          </Text>
-                        </View>
 
                         {hasMultiple && (
-                          <View
-                            style={[
-                              styles.tileExtraBadge,
-                              { backgroundColor: colors.inputBackground },
-                            ]}
-                          >
-                            <Text
-                              style={[styles.tileExtraText, { color: colors.textMuted }]}
-                            >
-                              +{group.offers.length - 1}
-                            </Text>
+                          <View style={{ marginLeft: 4 }}>
+                            {isExpanded ? (
+                              <ChevronUp size={14} color={colors.accent} />
+                            ) : (
+                              <ChevronDown size={14} color={colors.textMuted} />
+                            )}
                           </View>
                         )}
                       </View>
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
+
+                    {isExpanded && (
+                      <View
+                        style={[
+                          styles.accordionContent,
+                          { backgroundColor: colors.inputBackground, borderTopColor: colors.cardBorder },
+                        ]}
+                      >
+                        {group.offers.map((offer, oIdx) => {
+                          const isLeader = oIdx === 0;
+                          return (
+                            <View
+                              key={`${offer.bank.id}-${oIdx}`}
+                              style={[
+                                styles.accordionRow,
+                                oIdx < group.offers.length - 1 && {
+                                  borderBottomWidth: 1,
+                                  borderBottomColor: 'rgba(148, 163, 184, 0.1)',
+                                },
+                              ]}
+                            >
+                              <View style={styles.accordionLeft}>
+                                <View
+                                  style={[
+                                    styles.bankDot,
+                                    { backgroundColor: offer.bank.primaryColor },
+                                  ]}
+                                />
+                                <Text
+                                  style={[
+                                    styles.accordionBankTitle,
+                                    {
+                                      color: colors.textPrimary,
+                                      fontWeight: isLeader ? '800' : '600',
+                                    },
+                                  ]}
+                                >
+                                  {offer.bank.name}
+                                </Text>
+                                {isLeader && (
+                                  <View style={styles.leaderMiniBadge}>
+                                    <Text style={styles.leaderMiniBadgeText}>ЛИДЕР</Text>
+                                  </View>
+                                )}
+                                {offer.isShared && (
+                                  <View style={styles.sharedMiniTag}>
+                                    <Text style={styles.sharedMiniTagText}>
+                                      {offer.sharedByName || partnerName}
+                                    </Text>
+                                  </View>
+                                )}
+                                {offer.item.note && (
+                                  <Text
+                                    style={[styles.accordionNote, { color: colors.textMuted }]}
+                                    numberOfLines={1}
+                                  >
+                                    ({offer.item.note})
+                                  </Text>
+                                )}
+                              </View>
+
+                              <Text
+                                style={[
+                                  styles.accordionPercent,
+                                  {
+                                    color: isLeader ? colors.accent : colors.accentBlue,
+                                  },
+                                ]}
+                              >
+                                {offer.item.percent}%
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : viewMode === 'spotlight' ? (
+          <View style={styles.spotlightSection}>
+            <View style={styles.sectionHeader}>
+              <Trophy size={16} color="#FFDD2D" style={{ marginRight: 6 }} />
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                🔥 Золотой рейтинг месяца
+              </Text>
+            </View>
+
+            <View style={{ gap: 8 }}>
+              {filteredOffers.map((offer, idx) => {
+                const isTop3 = idx < 3;
+                const visual = getCategoryVisual(offer.item.category);
+                const VisualIcon = visual.Icon;
+
+                return (
+                  <View
+                    key={`${offer.bank.id}-${offer.item.id}-${idx}`}
+                    style={[
+                      styles.matchCard,
+                      { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                      idx === 0 && styles.bestMatchCard,
+                    ]}
+                  >
+                    <View style={styles.cardMain}>
+                      <View
+                        style={[
+                          styles.rankCircle,
+                          idx === 0
+                            ? styles.rankCircleGold
+                            : isTop3
+                            ? { backgroundColor: 'rgba(255, 221, 45, 0.15)' }
+                            : styles.rankCircleNormal,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.rankNumber,
+                            idx === 0 ? styles.rankNumberGold : styles.rankNumberNormal,
+                          ]}
+                        >
+                          #{idx + 1}
+                        </Text>
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <VisualIcon size={14} color={visual.color} style={{ marginRight: 5 }} />
+                          <Text
+                            style={[
+                              styles.spotlightCategoryTitle,
+                              { color: colors.textPrimary },
+                            ]}
+                          >
+                            {offer.item.category}
+                          </Text>
+                        </View>
+
+                        <View style={[styles.bankRow, { marginTop: 2 }]}>
+                          <View
+                            style={[
+                              styles.bankIndicator,
+                              { backgroundColor: offer.bank.primaryColor },
+                            ]}
+                          />
+                          <Text style={[styles.bankTitle, { color: colors.textSecondary }]}>
+                            {offer.bank.name}
+                          </Text>
+                          {offer.isShared && (
+                            <View style={styles.sharedBadge}>
+                              <Heart size={8} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 2 }} />
+                              <Text style={styles.sharedBadgeText}>
+                                {offer.sharedByName || partnerName}
+                              </Text>
+                            </View>
+                          )}
+                          {offer.item.note && (
+                            <Text style={[styles.matchNote, { color: colors.textMuted, marginLeft: 6 }]}>
+                              {offer.item.note}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.percentBox,
+                          idx === 0
+                            ? styles.percentBoxGold
+                            : { backgroundColor: 'rgba(56, 189, 248, 0.15)' },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.percentValue,
+                            idx === 0 ? styles.percentValueGold : styles.percentValueNormal,
+                          ]}
+                        >
+                          {offer.item.percent}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : viewMode === 'by_bank' ? (
+          <View style={styles.byBankSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.bankTabsScroll}
+            >
+              {activeMonthBanks.map(({ bank, count, maxPercent }) => {
+                const isSelected = selectedBankId === bank.id;
+                return (
+                  <TouchableOpacity
+                    key={bank.id}
+                    style={[
+                      styles.bankSelectTab,
+                      { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                      isSelected && {
+                        borderColor: bank.primaryColor,
+                        borderWidth: 1.5,
+                        backgroundColor: colors.inputBackground,
+                      },
+                    ]}
+                    onPress={() => setSelectedBankId(bank.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.bankDot, { backgroundColor: bank.primaryColor }]} />
+                    <Text
+                      style={[
+                        styles.bankSelectTabText,
+                        { color: isSelected ? colors.textPrimary : colors.textSecondary },
+                        isSelected && { fontWeight: '800' },
+                      ]}
+                    >
+                      {bank.shortName || bank.name}
+                    </Text>
+                    <View
+                      style={[
+                        styles.bankTabBadge,
+                        { backgroundColor: isSelected ? bank.primaryColor : colors.badgeBackground },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.bankTabBadgeText,
+                          { color: isSelected ? '#0F172A' : colors.textMuted },
+                        ]}
+                      >
+                        {count}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {(() => {
+              const currentBankOffers = filteredOffers.filter(
+                (o) => o.bank.id === selectedBankId
+              );
+              const currentBank = banks.find((b) => b.id === selectedBankId);
+
+              return (
+                <View style={{ marginTop: 10, gap: 8 }}>
+                  <View
+                    style={[
+                      styles.selectedBankBanner,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: currentBank?.primaryColor || colors.cardBorder,
+                      },
+                    ]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View
+                        style={[
+                          styles.bankIndicator,
+                          {
+                            backgroundColor: currentBank?.primaryColor || '#38BDF8',
+                            width: 10,
+                            height: 10,
+                            borderRadius: 5,
+                          },
+                        ]}
+                      />
+                      <Text style={[styles.selectedBankTitle, { color: colors.textPrimary }]}>
+                        {currentBank?.name}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                      {currentBankOffers.length} категорий
+                    </Text>
+                  </View>
+
+                  {currentBankOffers.map((offer, idx) => {
+                    const visual = getCategoryVisual(offer.item.category);
+                    const VisualIcon = visual.Icon;
+
+                    return (
+                      <View
+                        key={`${offer.item.id}-${idx}`}
+                        style={[
+                          styles.compactCardWrapper,
+                          { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                        ]}
+                      >
+                        <View style={styles.compactRow}>
+                          <View style={[styles.compactIconCircle, { backgroundColor: visual.bg }]}>
+                            <VisualIcon size={16} color={visual.color} />
+                          </View>
+                          <View style={styles.compactTitleWrap}>
+                            <Text
+                              style={[styles.compactCategoryName, { color: colors.textPrimary }]}
+                            >
+                              {offer.item.category}
+                            </Text>
+                            {offer.item.note && (
+                              <Text style={[styles.accordionNote, { color: colors.textMuted }]}>
+                                {offer.item.note}
+                              </Text>
+                            )}
+                          </View>
+                          <View
+                            style={[
+                              styles.compactPercentBadge,
+                              {
+                                backgroundColor:
+                                  offer.item.percent >= 10
+                                    ? colors.accent
+                                    : 'rgba(56, 189, 248, 0.15)',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.compactPercentText,
+                                {
+                                  color: offer.item.percent >= 10 ? '#0F172A' : '#38BDF8',
+                                },
+                              ]}
+                            >
+                              {offer.item.percent}%
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
+          </View>
+        ) : (
+          <View style={styles.gridSection}>
+            <View style={styles.sectionHeader}>
+              <TrendingUp size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                Категории месяца ({groupedCategories.length})
+              </Text>
+            </View>
+
+            <View style={styles.gridContainer}>
+              {groupedCategories.map((group) => {
+                const visual = getCategoryVisual(group.category);
+                const VisualIcon = visual.Icon;
+                const leader = group.offers[0];
+                const hasMultiple = group.offers.length > 1;
+
+                return (
+                  <TouchableOpacity
+                    key={group.category}
+                    style={[
+                      styles.gridTile,
+                      { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    ]}
+                    onPress={() => setSelectedCategory(group)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.tileTopRow}>
+                      <View style={[styles.tileIconCircle, { backgroundColor: visual.bg }]}>
+                        <VisualIcon size={18} color={visual.color} />
+                      </View>
+                      <View
+                        style={[
+                          styles.tilePercentBadge,
+                          {
+                            backgroundColor:
+                              group.maxPercent >= 10
+                                ? colors.accent
+                                : 'rgba(56, 189, 248, 0.15)',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.tilePercentText,
+                            {
+                              color: group.maxPercent >= 10 ? '#0F172A' : '#38BDF8',
+                            },
+                          ]}
+                        >
+                          {group.maxPercent}%
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text
+                      style={[styles.tileCategoryTitle, { color: colors.textPrimary }]}
+                      numberOfLines={2}
+                    >
+                      {group.category}
+                    </Text>
+
+                    <View style={styles.tileBottomRow}>
+                      <View style={styles.tileLeaderWrap}>
+                        <View
+                          style={[
+                            styles.tileBankDot,
+                            { backgroundColor: leader?.bank.primaryColor || '#38BDF8' },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.tileBankName, { color: colors.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {leader?.bank.shortName || leader?.bank.name}
+                        </Text>
+                      </View>
+
+                      {hasMultiple && (
+                        <View
+                          style={[
+                            styles.tileExtraBadge,
+                            { backgroundColor: colors.inputBackground },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.tileExtraText, { color: colors.textMuted }]}
+                          >
+                            +{group.offers.length - 1}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         )}
 
@@ -922,18 +1503,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 14,
   },
-  ownerFilterWrap: {
+  topControlsWrap: {
     paddingHorizontal: 14,
     marginBottom: 6,
   },
-  ownerFilterContainer: {
+  viewModeSwitcher: {
     flexDirection: 'row',
     borderRadius: 10,
     borderWidth: 1,
-    padding: 3,
-    gap: 4,
+    padding: 2,
+    gap: 2,
   },
-  ownerFilterBtn: {
+  viewModeBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -943,9 +1524,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
+  viewModeBtnActive: {},
+  viewModeBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  viewModeBtnTextActive: {
+    fontWeight: '800',
+  },
+  ownerFilterContainer: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 2,
+    gap: 2,
+  },
+  ownerFilterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
   ownerFilterBtnActive: {},
   ownerFilterText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   ownerFilterTextActive: {
@@ -995,7 +1601,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginLeft: 4,
   },
-  gridSection: {
+  compactSection: {
     marginTop: 2,
   },
   sectionHeader: {
@@ -1006,6 +1612,143 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  compactList: {
+    gap: 6,
+  },
+  compactCardWrapper: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  compactIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  compactTitleWrap: {
+    flex: 1,
+    marginRight: 6,
+  },
+  compactCategoryName: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  compactRightWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactBankDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  compactBankName: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginRight: 6,
+    maxWidth: 80,
+  },
+  compactPercentBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  compactPercentText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  accordionContent: {
+    borderTopWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  accordionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  accordionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
+  },
+  accordionBankTitle: {
+    fontSize: 12,
+  },
+  accordionNote: {
+    fontSize: 10,
+    marginLeft: 4,
+    flexShrink: 1,
+  },
+  accordionPercent: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  spotlightSection: {
+    marginTop: 2,
+  },
+  spotlightCategoryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  byBankSection: {
+    marginTop: 2,
+  },
+  bankTabsScroll: {
+    gap: 6,
+    paddingBottom: 4,
+  },
+  bankSelectTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 5,
+  },
+  bankSelectTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  bankTabBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 10,
+  },
+  bankTabBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  selectedBankBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  selectedBankTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginLeft: 6,
+  },
+  gridSection: {
+    marginTop: 2,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -1158,6 +1901,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 6,
   },
+  bankDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 5,
+  },
   bankTitle: {
     fontSize: 12,
     fontWeight: '700',
@@ -1174,6 +1923,20 @@ const styles = StyleSheet.create({
   sharedBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
+    fontWeight: '800',
+  },
+  sharedMiniTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EC4899',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  sharedMiniTagText: {
+    color: '#FFFFFF',
+    fontSize: 8,
     fontWeight: '800',
   },
   matchReason: {

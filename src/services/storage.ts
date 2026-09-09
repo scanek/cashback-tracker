@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableMonthlyReminders: true,
   activeTheme: 'dark',
   widgetTheme: 'dark',
+  advisorViewMode: 'compact',
   partnerName: 'Партнер',
   autoSyncEnabled: true,
 };

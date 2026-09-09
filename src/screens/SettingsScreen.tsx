@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { AppSettings, Bank, MonthlyCashback } from '../types';
+import { AppSettings, Bank, MonthlyCashback, AdvisorViewMode } from '../types';
 import { StorageService } from '../services/storage';
 import { NotificationService } from '../services/notifications';
 import { GeminiVisionService } from '../services/gemini';
@@ -54,6 +54,9 @@ import {
   Smartphone,
   Copy,
   ArrowRight,
+  List,
+  Search,
+  CreditCard,
 } from 'lucide-react-native';
 import { WidgetThemeMode } from '../widgets/CashbackWidget';
 import { WidgetService } from '../services/widget';
@@ -71,6 +74,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [testingKey, setTestingKey] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [widgetTheme, setWidgetTheme] = useState<WidgetThemeMode>('dark');
+  const [advisorViewMode, setAdvisorViewMode] = useState<AdvisorViewMode>('compact');
   const [partnerName, setPartnerName] = useState<string>('Партнер');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [syncKey, setSyncKey] = useState<string>('');
@@ -92,6 +96,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setApiKey(s.geminiApiKey || '');
     setNotificationsEnabled(s.enableMonthlyReminders);
     setPartnerName(s.partnerName || 'Партнер');
+    setAdvisorViewMode(s.advisorViewMode || 'compact');
     if (s.widgetTheme) {
       setWidgetTheme(s.widgetTheme as WidgetThemeMode);
     }
@@ -133,6 +138,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setWidgetTheme(mode);
     await StorageService.saveSettings({ widgetTheme: mode });
     WidgetService.updateWidget(mode);
+  };
+
+  const handleSetAdvisorViewMode = async (mode: AdvisorViewMode) => {
+    setAdvisorViewMode(mode);
+    await StorageService.saveSettings({ advisorViewMode: mode });
   };
 
   const handleSaveApiKey = async () => {
@@ -641,6 +651,179 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               >
                 Светлая
               </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Advisor Style Mode Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <List size={18} color={colors.accent} style={{ marginRight: 8 }} />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Вид экрана «Чем платить»
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            Выберите наиболее удобный стиль отображения кэшбэков советника.
+          </Text>
+
+          <View style={{ gap: 8, marginTop: 4 }}>
+            {/* 1. Compact List */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                {
+                  backgroundColor: colors.inputBackground,
+                  borderColor: advisorViewMode === 'compact' ? colors.accent : colors.inputBorder,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  justifyContent: 'flex-start',
+                },
+                advisorViewMode === 'compact' && { borderWidth: 1.5 },
+              ]}
+              onPress={() => handleSetAdvisorViewMode('compact')}
+              activeOpacity={0.7}
+            >
+              <List
+                size={18}
+                color={advisorViewMode === 'compact' ? colors.accent : colors.textMuted}
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: advisorViewMode === 'compact' ? '800' : '600',
+                      color: advisorViewMode === 'compact' ? colors.accent : colors.textPrimary,
+                    }}
+                  >
+                    Компактный список
+                  </Text>
+                  <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 6 }}>
+                    <Text style={{ fontSize: 9, color: '#38BDF8', fontWeight: '800' }}>Хит</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  Плотные банковские строки, раскрытие на месте без модалок
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* 2. Spotlight Search & Top % */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                {
+                  backgroundColor: colors.inputBackground,
+                  borderColor: advisorViewMode === 'spotlight' ? colors.accent : colors.inputBorder,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  justifyContent: 'flex-start',
+                },
+                advisorViewMode === 'spotlight' && { borderWidth: 1.5 },
+              ]}
+              onPress={() => handleSetAdvisorViewMode('spotlight')}
+              activeOpacity={0.7}
+            >
+              <Search
+                size={18}
+                color={advisorViewMode === 'spotlight' ? colors.accent : colors.textMuted}
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: advisorViewMode === 'spotlight' ? '800' : '600',
+                    color: advisorViewMode === 'spotlight' ? colors.accent : colors.textPrimary,
+                  }}
+                >
+                  Умный поиск + Топ-%
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  Фокус на быстром поиске у кассы и рейтинге максимальных %
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* 3. By Bank Tabs */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                {
+                  backgroundColor: colors.inputBackground,
+                  borderColor: advisorViewMode === 'by_bank' ? colors.accent : colors.inputBorder,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  justifyContent: 'flex-start',
+                },
+                advisorViewMode === 'by_bank' && { borderWidth: 1.5 },
+              ]}
+              onPress={() => handleSetAdvisorViewMode('by_bank')}
+              activeOpacity={0.7}
+            >
+              <CreditCard
+                size={18}
+                color={advisorViewMode === 'by_bank' ? colors.accent : colors.textMuted}
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: advisorViewMode === 'by_bank' ? '800' : '600',
+                    color: advisorViewMode === 'by_bank' ? colors.accent : colors.textPrimary,
+                  }}
+                >
+                  По картам банков
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  Вкладки с переключением между вашими картами
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* 4. Visual 2-Column Grid */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                {
+                  backgroundColor: colors.inputBackground,
+                  borderColor: advisorViewMode === 'grid' ? colors.accent : colors.inputBorder,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  justifyContent: 'flex-start',
+                },
+                advisorViewMode === 'grid' && { borderWidth: 1.5 },
+              ]}
+              onPress={() => handleSetAdvisorViewMode('grid')}
+              activeOpacity={0.7}
+            >
+              <LayoutGrid
+                size={18}
+                color={advisorViewMode === 'grid' ? colors.accent : colors.textMuted}
+                style={{ marginRight: 10 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: advisorViewMode === 'grid' ? '800' : '600',
+                    color: advisorViewMode === 'grid' ? colors.accent : colors.textPrimary,
+                  }}
+                >
+                  Плитки с иконками
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  Цветная сетка категорий 2×2 с всплывающими деталями
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>

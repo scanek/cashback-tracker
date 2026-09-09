@@ -50,6 +50,7 @@ export interface SmartMatchResult {
 }
 
 export type SyncStatusState = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+export type AdvisorViewMode = 'compact' | 'spotlight' | 'by_bank' | 'grid';
 
 export interface AppSettings {
   geminiApiKey: string;
@@ -57,6 +58,7 @@ export interface AppSettings {
   enableMonthlyReminders: boolean;
   activeTheme: 'dark' | 'light' | 'system';
   widgetTheme?: 'dark' | 'light' | 'transparent';
+  advisorViewMode?: AdvisorViewMode;
   partnerName?: string;
   // Cloud Sync Settings
   syncServerUrl?: string; // e.g. http://localhost:4000 or production url
