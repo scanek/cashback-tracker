@@ -212,6 +212,24 @@ function getCategoryVisual(categoryName: string): CategoryVisual {
   return { Icon: ShoppingBag, color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.12)' };
 }
 
+const MANDATORY_CATEGORIES = [
+  {
+    name: 'Супермаркеты и продукты',
+    shortName: 'Супермаркеты',
+    keywords: ['супермаркет', 'продукт', 'еда', 'пятерочк', 'магнит', 'перекрест', 'лент', 'ашан', 'вкусвилл', 'самокат', 'чижик'],
+  },
+  {
+    name: 'Аптеки и здоровье',
+    shortName: 'Аптеки',
+    keywords: ['аптек', 'лекарств', 'здоровь', 'медицин', 'клиник', 'еаптек', 'горздрав', 'ригла', 'вита'],
+  },
+  {
+    name: 'АЗС и топливо',
+    shortName: 'АЗС (Топливо)',
+    keywords: ['азс', 'топлив', 'бензин', 'заправк', 'лукойл', 'газпром', 'роснефт', 'teboil', 'татнефть'],
+  },
+];
+
 interface GroupedCategory {
   category: string;
   maxPercent: number;
@@ -335,31 +353,45 @@ export const AdvisorScreen: React.FC = () => {
 
   const sharedCount = allOffers.filter((o) => o.isShared).length;
 
-  const dynamicSuggestions = useMemo(() => {
-    const categoryMap = new Map<string, { category: string; maxPercent: number }>();
-    filteredOffers.forEach((offer) => {
-      const cat = offer.item.category.trim();
-      if (!cat) return;
-      const existing = categoryMap.get(cat);
-      if (existing) {
-        existing.maxPercent = Math.max(existing.maxPercent, offer.item.percent);
-      } else {
-        categoryMap.set(cat, {
-          category: cat,
-          maxPercent: offer.item.percent,
-        });
-      }
+  // Best fallback card for all purchases (1% base)
+  const defaultFallbackOffers = useMemo(() => {
+    const allPurchases = filteredOffers.filter((o) => {
+      const lower = o.item.category.toLowerCase();
+      return (
+        lower.includes('все покупк') ||
+        lower.includes('на все') ||
+        lower.includes('на всё') ||
+        lower.includes('любые покупк') ||
+        lower.includes('базов')
+      );
     });
-    const list = Array.from(categoryMap.values()).sort((a, b) => b.maxPercent - a.maxPercent);
-    if (list.length === 0) {
-      return POPULAR_SEARCH_QUERIES.map((q) => ({ category: q, maxPercent: 0 }));
+
+    if (allPurchases.length > 0) {
+      return allPurchases;
     }
-    return list;
-  }, [filteredOffers]);
+
+    const activeBanks = banks.filter((b) => b.isActive);
+    if (activeBanks.length > 0) {
+      return activeBanks.map((b) => ({
+        bank: b,
+        item: {
+          id: `fallback-all-${b.id}`,
+          category: '1% на все покупки',
+          percent: 1,
+          note: 'Базовый кэшбэк на всё',
+        },
+        isShared: false,
+        sharedByName: undefined as string | undefined,
+      }));
+    }
+
+    return [];
+  }, [filteredOffers, banks]);
 
   const groupedCategories: GroupedCategory[] = useMemo(() => {
     const map = new Map<string, GroupedCategory>();
 
+    // 1. Add all explicit scanned / added offers
     filteredOffers.forEach((offer) => {
       const cat = offer.item.category.trim();
       if (!cat) return;
@@ -376,13 +408,61 @@ export const AdvisorScreen: React.FC = () => {
       }
     });
 
+    // 2. GUARANTEE that Supermarkets, Pharmacies, and Fuel ALWAYS appear
+    MANDATORY_CATEGORIES.forEach((mandatory) => {
+      const hasCategory = Array.from(map.keys()).some((catKey) => {
+        const lower = catKey.toLowerCase();
+        return mandatory.keywords.some((kw) => lower.includes(kw));
+      });
+
+      if (!hasCategory && defaultFallbackOffers.length > 0) {
+        map.set(mandatory.name, {
+          category: mandatory.name,
+          maxPercent: defaultFallbackOffers[0]?.item.percent || 1,
+          offers: defaultFallbackOffers.map((d) => ({
+            bank: d.bank,
+            item: {
+              id: `mandatory-${d.bank.id}-${mandatory.name}`,
+              category: mandatory.name,
+              percent: d.item.percent || 1,
+              note: '1% базовый кэшбэк',
+            },
+            isShared: d.isShared,
+            sharedByName: d.sharedByName,
+          })),
+        });
+      }
+    });
+
     return Array.from(map.values())
       .map((group) => ({
         ...group,
         offers: group.offers.sort((a, b) => b.item.percent - a.item.percent),
       }))
       .sort((a, b) => b.maxPercent - a.maxPercent);
-  }, [filteredOffers]);
+  }, [filteredOffers, defaultFallbackOffers]);
+
+  const dynamicSuggestions = useMemo(() => {
+    const categoryMap = new Map<string, { category: string; maxPercent: number }>();
+    groupedCategories.forEach((group) => {
+      categoryMap.set(group.category, {
+        category: group.category,
+        maxPercent: group.maxPercent,
+      });
+    });
+
+    const list = Array.from(categoryMap.values()).sort((a, b) => b.maxPercent - a.maxPercent);
+    if (list.length === 0) {
+      return POPULAR_SEARCH_QUERIES.map((q) => ({ category: q, maxPercent: 0 }));
+    }
+    return list;
+  }, [groupedCategories]);
+
+  const spotlightOffers = useMemo(() => {
+    return groupedCategories
+      .flatMap((g) => g.offers)
+      .sort((a, b) => b.item.percent - a.item.percent);
+  }, [groupedCategories]);
 
   const activeMonthBanks = useMemo(() => {
     const map = new Map<string, { bank: Bank; count: number; maxPercent: number }>();
@@ -1010,7 +1090,7 @@ export const AdvisorScreen: React.FC = () => {
             </View>
 
             <View style={{ gap: 8 }}>
-              {filteredOffers.map((offer, idx) => {
+              {spotlightOffers.map((offer, idx) => {
                 const isTop3 = idx < 3;
                 const visual = getCategoryVisual(offer.item.category);
                 const VisualIcon = visual.Icon;
