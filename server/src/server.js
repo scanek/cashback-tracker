@@ -141,10 +141,12 @@ async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
       const available = (listData.models || [])
         .filter((m) => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
         .map((m) => m.name.replace(/^models\//, ''))
-        // Strictly exclude non-image models (TTS, Audio, Embedding, Imagen, AQA)
+        // Strictly filter only ACTIVE Gemini Multimodal Vision models (exclude deprecated 2.5, TTS, audio, embeddings, text-only gemma)
         .filter((name) => {
           const lower = name.toLowerCase();
           return (
+            lower.startsWith('gemini-') &&
+            !lower.includes('2.5') &&
             !lower.includes('tts') &&
             !lower.includes('audio') &&
             !lower.includes('embed') &&
@@ -174,7 +176,7 @@ async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
           if (!sorted.includes(m)) sorted.push(m);
         }
         candidateModels = sorted;
-        console.log(`🤖 [OCR] Доступные мультимодальные модели (${candidateModels.length}):`, candidateModels.slice(0, 4));
+        console.log(`🤖 [OCR] Выбраны активные модели для скриншота:`, candidateModels);
       }
     }
   } catch (e) {
