@@ -369,64 +369,72 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </View>
 
-        {/* Mobile App & PWA Card */}
+        {/* Mobile App & PWA Card (Compact) */}
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            { backgroundColor: colors.card, borderColor: colors.cardBorder, paddingVertical: 12 },
           ]}
         >
-          <View style={styles.cardHeader}>
-            <Smartphone size={18} color="#38BDF8" style={{ marginRight: 8 }} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              Мобильное приложение (PWA & APK)
-            </Text>
-          </View>
-          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Установите приложение на телефон для работы на весь экран без адресной строки браузера и с полной поддержкой офлайн-режима.
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 180 }}>
+              <Smartphone size={18} color="#38BDF8" style={{ marginRight: 8 }} />
+              <View>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary, fontSize: 13 }]}>
+                  {PwaService.isStandalone() ? 'Приложение установлено' : 'Мобильное приложение'}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  {PwaService.isStandalone() ? 'Работает на весь экран в офлайн-режиме' : 'Установка на экран телефона (PWA / APK)'}
+                </Text>
+              </View>
+            </View>
 
-          <View style={styles.syncBtnRow}>
-            {Platform.OS === 'web' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {!PwaService.isStandalone() && Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#38BDF8',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                  onPress={() => PwaService.promptInstall()}
+                  activeOpacity={0.8}
+                >
+                  <Download size={14} color="#0F172A" style={{ marginRight: 4 }} />
+                  <Text style={{ color: '#0F172A', fontSize: 11, fontWeight: '800' }}>Установить</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
-                style={[styles.pairDeviceBtn, { backgroundColor: '#38BDF8' }]}
-                onPress={() => PwaService.promptInstall()}
+                style={{
+                  backgroundColor: colors.inputBackground,
+                  borderColor: colors.inputBorder,
+                  borderWidth: 1,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+                onPress={() => {
+                  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                    window.open('https://github.com/scanek/cashback-tracker/releases', '_blank');
+                  } else {
+                    Alert.alert(
+                      'Android APK',
+                      'Автономный файл Мои_Кэшбеки.apk собирается скриптом build-apk-local.bat или доступен в GitHub Releases.'
+                    );
+                  }
+                }}
                 activeOpacity={0.8}
               >
-                <Download size={16} color="#0F172A" style={{ marginRight: 6 }} />
-                <Text style={styles.pairDeviceBtnText}>Установить на телефон (PWA)</Text>
+                <ExternalLink size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.accentBlue, fontSize: 11, fontWeight: '700' }}>APK ↗</Text>
               </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={[
-                styles.manualSyncBtn,
-                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
-              ]}
-              onPress={() => {
-                if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                  window.open('https://github.com/scanek/cashback-tracker/releases', '_blank');
-                } else {
-                  Alert.alert(
-                    'Android APK',
-                    'Автономный файл Мои_Кэшбеки.apk собирается скриптом build-apk-local.bat или доступен в GitHub Releases.'
-                  );
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <ExternalLink size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
-              <Text style={[styles.manualSyncBtnText, { color: colors.accentBlue }]}>
-                Скачать APK (.apk)
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.infoBox, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, marginTop: 12 }]}>
-            <Info size={16} color={colors.accent} style={{ marginRight: 8, marginTop: 2 }} />
-            <Text style={[styles.infoBoxText, { color: colors.textSecondary }]}>
-              💡 <Text style={{ fontWeight: '700', color: colors.textPrimary }}>Как убрать строку браузера:</Text> В Chrome на телефоне нажмите меню (три точки) ➔ «Установить приложение» ➔ открывайте с иконки на главном экране.
-            </Text>
+            </View>
           </View>
         </View>
 
