@@ -8,13 +8,13 @@ import {
   Switch,
   TextInput,
   Modal,
-  Alert,
 } from 'react-native';
 import { Bank } from '../types';
 import { StorageService } from '../services/storage';
 import { Header } from '../components/Header';
 import { useTheme } from '../context/ThemeContext';
-import { Plus, CreditCard, X, Check } from 'lucide-react-native';
+import { confirmDialog, showCustomAlert } from '../utils/alert';
+import { Plus, CreditCard, X, Check, Trash2, RotateCcw } from 'lucide-react-native';
 
 const PRESET_COLORS = [
   '#FFDD2D', // Yellow
@@ -51,9 +51,32 @@ export const CardsManagementScreen: React.FC = () => {
     setBanks(updated);
   };
 
+  const handleDeleteBank = (bank: Bank) => {
+    confirmDialog(
+      'Удалить банк',
+      `Удалить банк "${bank.name}" из списка? Вы сможете восстановить его в любой момент.`,
+      async () => {
+        const updated = await StorageService.deleteBank(bank.id);
+        setBanks(updated);
+      }
+    );
+  };
+
+  const handleRestoreDefaults = () => {
+    confirmDialog(
+      'Восстановить банки',
+      'Вернуть все стандартные российские банки в список?',
+      async () => {
+        const updated = await StorageService.restoreDefaultBanks();
+        setBanks(updated);
+        showCustomAlert('Успех', 'Стандартные банки восстановлены!');
+      }
+    );
+  };
+
   const handleAddCustomBank = async () => {
     if (!newBankName.trim()) {
-      Alert.alert('Ошибка', 'Введите название банка');
+      showCustomAlert('Ошибка', 'Введите название банка');
       return;
     }
 
@@ -113,12 +136,21 @@ export const CardsManagementScreen: React.FC = () => {
                 </View>
               </View>
 
-              <Switch
-                value={bank.isActive}
-                onValueChange={() => handleToggle(bank.id)}
-                trackColor={{ false: colors.cardBorder, true: colors.accentBlue }}
-                thumbColor={bank.isActive ? '#FFFFFF' : colors.textMuted}
-              />
+              <View style={styles.bankActions}>
+                <Switch
+                  value={bank.isActive}
+                  onValueChange={() => handleToggle(bank.id)}
+                  trackColor={{ false: colors.cardBorder, true: colors.accentBlue }}
+                  thumbColor={bank.isActive ? '#FFFFFF' : colors.textMuted}
+                />
+                <TouchableOpacity
+                  onPress={() => handleDeleteBank(bank)}
+                  style={[styles.deleteBtn, { borderColor: colors.cardBorder }]}
+                  activeOpacity={0.7}
+                >
+                  <Trash2 size={15} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>
@@ -134,6 +166,20 @@ export const CardsManagementScreen: React.FC = () => {
           <Plus size={18} color={colors.accentBlue} style={{ marginRight: 8 }} />
           <Text style={[styles.addBankBtnText, { color: colors.accentBlue }]}>
             Добавить свой банк / карту
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.restoreBtn,
+            { borderColor: colors.cardBorder, backgroundColor: colors.card },
+          ]}
+          onPress={handleRestoreDefaults}
+          activeOpacity={0.8}
+        >
+          <RotateCcw size={14} color={colors.textSecondary} style={{ marginRight: 6 }} />
+          <Text style={[styles.restoreBtnText, { color: colors.textSecondary }]}>
+            Восстановить банки по умолчанию
           </Text>
         </TouchableOpacity>
 
@@ -365,5 +411,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  bankActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteBtn: {
+    padding: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  restoreBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

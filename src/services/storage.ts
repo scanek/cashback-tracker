@@ -138,6 +138,47 @@ export class StorageService {
     return updated.filter(b => !b.deletedAt);
   }
 
+  static async deleteBank(bankId: string): Promise<Bank[]> {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.BANKS);
+    const banks: Bank[] = raw ? JSON.parse(raw) : PRESET_BANKS;
+    const updated = banks.map(b =>
+      b.id === bankId
+        ? { ...b, deletedAt: new Date().toISOString(), isActive: false, updatedAt: new Date().toISOString() }
+        : b
+    );
+    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
+    SyncService.performSync().catch(() => {});
+    return updated.filter(b => !b.deletedAt);
+  }
+
+  static async restoreDefaultBanks(): Promise<Bank[]> {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.BANKS);
+    const currentBanks: Bank[] = raw ? JSON.parse(raw) : [];
+    
+    const merged = [...currentBanks];
+    for (const preset of PRESET_BANKS) {
+      const idx = merged.findIndex(b => b.id === preset.id);
+      if (idx >= 0) {
+        merged[idx] = {
+          ...merged[idx],
+          ...preset,
+          deletedAt: undefined,
+          isActive: true,
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        merged.push({
+          ...preset,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(merged));
+    SyncService.performSync().catch(() => {});
+    return merged.filter(b => !b.deletedAt);
+  }
+
   static async getAllCashbacks(): Promise<MonthlyCashback[]> {
     try {
       await this.initializeDefaults();

@@ -157,26 +157,6 @@ function MainAppContent() {
               </Text>
             </TouchableOpacity>
 
-            {/* Center Scan Tab Button */}
-            <TouchableOpacity
-              style={styles.centerScanTab}
-              onPress={() => setActiveTab('scan')}
-              activeOpacity={0.85}
-            >
-              <View
-                style={[
-                  styles.scanButtonCircle,
-                  {
-                    backgroundColor: colors.accent,
-                    shadowColor: colors.accent,
-                  },
-                ]}
-              >
-                <Camera size={22} color="#0F172A" />
-              </View>
-              <Text style={[styles.scanTabLabel, { color: colors.accent }]}>Сканер</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.tabItem}
               onPress={() => setActiveTab('cards')}

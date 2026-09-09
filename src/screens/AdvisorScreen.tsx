@@ -121,6 +121,35 @@ export const AdvisorScreen: React.FC = () => {
 
   const sharedCount = allOffers.filter((o) => o.isShared).length;
 
+  // Extract unique scanned categories for current month, sorted by highest cashback %
+  const dynamicSuggestions = React.useMemo(() => {
+    const categoryMap = new Map<string, { category: string; maxPercent: number; count: number }>();
+
+    filteredOffers.forEach((offer) => {
+      const cat = offer.item.category.trim();
+      if (!cat) return;
+      const existing = categoryMap.get(cat);
+      if (existing) {
+        existing.maxPercent = Math.max(existing.maxPercent, offer.item.percent);
+        existing.count += 1;
+      } else {
+        categoryMap.set(cat, {
+          category: cat,
+          maxPercent: offer.item.percent,
+          count: 1,
+        });
+      }
+    });
+
+    const list = Array.from(categoryMap.values()).sort((a, b) => b.maxPercent - a.maxPercent);
+
+    if (list.length === 0) {
+      return POPULAR_SEARCH_QUERIES.map((q) => ({ category: q, maxPercent: 0, count: 0 }));
+    }
+
+    return list;
+  }, [filteredOffers]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
@@ -259,17 +288,17 @@ export const AdvisorScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Quick Search Chips */}
+        {/* Dynamic Quick Search Chips from real scanned categories */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsScroll}
         >
-          {POPULAR_SEARCH_QUERIES.map((item) => {
-            const isSelected = query.toLowerCase() === item.toLowerCase();
+          {dynamicSuggestions.map((item) => {
+            const isSelected = query.toLowerCase() === item.category.toLowerCase();
             return (
               <TouchableOpacity
-                key={item}
+                key={item.category}
                 style={[
                   styles.chip,
                   { backgroundColor: colors.card, borderColor: colors.cardBorder },
@@ -278,7 +307,7 @@ export const AdvisorScreen: React.FC = () => {
                     borderColor: colors.accentBlue,
                   },
                 ]}
-                onPress={() => setQuery(isSelected ? '' : item)}
+                onPress={() => setQuery(isSelected ? '' : item.category)}
                 activeOpacity={0.7}
               >
                 <Text
@@ -287,9 +316,39 @@ export const AdvisorScreen: React.FC = () => {
                     { color: colors.textSecondary },
                     isSelected && styles.chipTextSelected,
                   ]}
+                  numberOfLines={1}
                 >
-                  {item}
+                  {item.category}
                 </Text>
+                {item.maxPercent > 0 && (
+                  <View
+                    style={[
+                      styles.chipPercentBadge,
+                      {
+                        backgroundColor: isSelected
+                          ? 'rgba(255,255,255,0.25)'
+                          : item.maxPercent >= 10
+                          ? colors.accent
+                          : colors.badgeBackground,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipPercentText,
+                        {
+                          color: isSelected
+                            ? '#FFFFFF'
+                            : item.maxPercent >= 10
+                            ? '#0F172A'
+                            : colors.accentBlue,
+                        },
+                      ]}
+                    >
+                      {item.maxPercent}%
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -684,10 +743,13 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
+    gap: 6,
   },
   chipText: {
     fontSize: 12,
@@ -696,6 +758,15 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  chipPercentBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  chipPercentText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   resultsContainer: {
     marginTop: 6,
