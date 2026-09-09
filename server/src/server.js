@@ -1,15 +1,16 @@
 /**
- * Pure Node.js (v18+) High-Performance Zero-Dependency Sync & Vision Server
- * Provides REST API for Two-Way Cloud Synchronization and Gemini Vision OCR.
+ * Cashback Hub Cloud Sync & Gemini Vision Server
+ * Handles cross-device JSON sync, authentication, and Google Gemini Vision OCR.
  */
 
 const http = require('http');
+const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 4000;
-const DATA_DIR = path.join(__dirname, '../data');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 // Ensure data directory exists
@@ -51,7 +52,7 @@ function saveDb() {
 
 loadDb();
 
-// Helper to hash passwords using standard PBKDF2
+// Password hashing utility
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
@@ -119,12 +120,103 @@ function getVisionSystemPrompt(currentYear) {
 }`;
 }
 
+// Helper to execute OCR against Google Gemini API with dynamic model discovery
+async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
+  // 1. Discover models available for this key
+  let candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      const available = (listData.models || [])
+        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''));
+      
+      if (available.length > 0) {
+        // Sort priority: 2.5-flash -> 2.0-flash -> 2.5-pro -> 1.5-flash -> others
+        const sorted = [];
+        for (const pref of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash']) {
+          const match = available.find(m => m.includes(pref));
+          if (match && !sorted.includes(match)) sorted.push(match);
+        }
+        for (const m of available) {
+          if (!sorted.includes(m)) sorted.push(m);
+        }
+        candidateModels = sorted;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to query models list, using default candidate list:', e.message);
+  }
+
+  const reqPayload = {
+    contents: [
+      {
+        parts: [
+          { text: getVisionSystemPrompt(currentYear) },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: cleanBase64,
+            },
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 1024,
+      responseMimeType: 'application/json',
+    },
+  };
+
+  let lastError = null;
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqPayload),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        lastError = new Error(`Model ${model} returned ${res.status}: ${errText}`);
+        console.warn(`Model ${model} failed, trying next: ${errText.slice(0, 100)}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleanText);
+
+      return {
+        modelUsed: model,
+        scanResult: {
+          bankName: parsed.bankName || 'Неизвестный банк',
+          bankId: parsed.bankId,
+          month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
+          year: typeof parsed.year === 'number' ? parsed.year : currentYear,
+          items: Array.isArray(parsed.items) ? parsed.items : [],
+        },
+      };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Все доступные модели Gemini вернули ошибку при распознавании.');
+}
+
 // Request Handler
 const server = http.createServer(async (req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -132,41 +224,44 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const sendJson = (statusCode, data) => {
-    res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(data));
+  const parsedUrl = url.parse(req.url, true);
+  const pathname = parsedUrl.pathname;
+
+  // Utility to send JSON response
+  const sendJson = (status, payload) => {
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(payload));
   };
 
-  // Parse Body
-  let body = '';
-  req.on('data', chunk => {
-    body += chunk;
-    // Protect against huge payloads (> 50MB)
-    if (body.length > 50 * 1024 * 1024) {
-      req.socket.destroy();
+  // Collect request body
+  let rawBody = '';
+  req.on('data', (chunk) => {
+    rawBody += chunk;
+    // Limit to 20MB for large mobile screenshot uploads
+    if (rawBody.length > 20 * 1024 * 1024) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Payload Too Large (max 20MB)' }));
+      req.destroy();
     }
   });
 
   req.on('end', async () => {
     let parsedBody = {};
-    if (body) {
+    if (rawBody) {
       try {
-        parsedBody = JSON.parse(body);
+        parsedBody = JSON.parse(rawBody);
       } catch (e) {
         return sendJson(400, { success: false, error: 'Invalid JSON payload' });
       }
     }
 
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    const pathname = url.pathname;
-
     try {
-      // 0. Root Welcome / Status
-      if (req.method === 'GET' && (pathname === '/' || pathname === '')) {
+      // 1. Root / Health Status
+      if (req.method === 'GET' && (pathname === '/' || pathname === '/api/health')) {
         return sendJson(200, {
           status: 'ok',
           message: '🚀 Cashback Hub Cloud Sync & Vision Server is running!',
-          version: '2.0.0',
+          version: '2.1.0',
           totalUsers: Object.keys(db.users).length,
           webClientPort: 8085,
           endpoints: {
@@ -174,81 +269,53 @@ const server = http.createServer(async (req, res) => {
             syncPull: 'POST /api/sync/pull',
             syncPush: 'POST /api/sync/push',
             pairDevice: 'POST /api/auth/pair',
-            visionScan: 'POST /api/scan/vision'
+            testKey: 'POST /api/scan/test-key',
+            visionScan: 'POST /api/scan/vision',
           },
           timestamp: new Date().toISOString(),
         });
       }
 
-      // 1. Health Check
-      if (req.method === 'GET' && pathname === '/api/health') {
-        return sendJson(200, {
-          status: 'ok',
-          service: 'Cashback Hub Cloud Sync & Vision Server',
-          version: '2.0.0',
-          totalUsers: Object.keys(db.users).length,
-          timestamp: new Date().toISOString(),
-        });
+      // 2. Auth: Register / Get Sync Key
+      if (req.method === 'POST' && pathname === '/api/auth/register') {
+        const { syncKey, email, password } = parsedBody;
+        const user = getOrCreateUser(syncKey);
+        if (email) user.email = email;
+        if (password) user.passwordHash = hashPassword(password);
+        user.updatedAt = new Date().toISOString();
+        saveDb();
+        return sendJson(200, { success: true, user });
       }
 
-      // 2. Auth Pair
+      // 3. Auth: Pair Device with existing Sync Key
       if (req.method === 'POST' && pathname === '/api/auth/pair') {
         const { syncKey } = parsedBody;
+        if (!syncKey) {
+          return sendJson(400, { success: false, error: 'syncKey is required' });
+        }
         const user = getOrCreateUser(syncKey);
         return sendJson(200, {
           success: true,
-          syncKey: user.syncKey,
-          userId: user.id,
+          message: `Устройство успешно связано с аккаунтом ${user.syncKey}`,
+          user,
         });
       }
 
-      // 3. Auth Register
-      if (req.method === 'POST' && pathname === '/api/auth/register') {
-        const { email, password } = parsedBody;
-        if (!email || !password) {
-          return sendJson(400, { success: false, error: 'Email и пароль обязательны' });
+      // 4. Sync Status Check
+      if (req.method === 'GET' && pathname === '/api/sync/status') {
+        const key = parsedUrl.query.syncKey;
+        if (!key) {
+          return sendJson(400, { success: false, error: 'syncKey parameter required' });
         }
-        const norm = email.toLowerCase().trim();
-        for (const u of Object.values(db.users)) {
-          if (u.email && u.email.toLowerCase() === norm) {
-            return sendJson(400, { success: false, error: 'Пользователь с таким email уже существует' });
-          }
-        }
-        const user = getOrCreateUser();
-        user.email = norm;
-        user.passwordHash = hashPassword(password);
-        user.updatedAt = new Date().toISOString();
-        saveDb();
+        const user = getOrCreateUser(key);
+        const banksCount = (db.banks[user.id] || []).length;
+        const cashbacksCount = (db.cashbacks[user.id] || []).length;
         return sendJson(200, {
           success: true,
           syncKey: user.syncKey,
-          userId: user.id,
-          email: user.email,
-        });
-      }
-
-      // 4. Auth Login
-      if (req.method === 'POST' && pathname === '/api/auth/login') {
-        const { email, password } = parsedBody;
-        if (!email || !password) {
-          return sendJson(400, { success: false, error: 'Email и пароль обязательны' });
-        }
-        const norm = email.toLowerCase().trim();
-        let found = null;
-        for (const u of Object.values(db.users)) {
-          if (u.email && u.email.toLowerCase() === norm) {
-            found = u;
-            break;
-          }
-        }
-        if (!found || !verifyPassword(password, found.passwordHash)) {
-          return sendJson(401, { success: false, error: 'Неверный email или пароль' });
-        }
-        return sendJson(200, {
-          success: true,
-          syncKey: found.syncKey,
-          userId: found.id,
-          email: found.email,
+          banksCount,
+          cashbacksCount,
+          lastUpdated: user.updatedAt,
         });
       }
 
@@ -259,31 +326,30 @@ const server = http.createServer(async (req, res) => {
           return sendJson(400, { success: false, error: 'syncKey is required' });
         }
         const user = getOrCreateUser(syncKey);
+        user.updatedAt = new Date().toISOString();
 
-        if (banks && Array.isArray(banks)) {
+        if (Array.isArray(banks)) {
           const currentBanks = db.banks[user.id] || [];
-          const bMap = new Map();
-          currentBanks.forEach(b => bMap.set(b.id, b));
-          banks.forEach(b => {
-            const existing = bMap.get(b.id);
+          const bankMap = new Map(currentBanks.map(b => [b.id, b]));
+          for (const b of banks) {
+            const existing = bankMap.get(b.id);
             if (!existing || new Date(b.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
-              bMap.set(b.id, { ...existing, ...b, userId: user.id, updatedAt: b.updatedAt || new Date().toISOString() });
+              bankMap.set(b.id, b);
             }
-          });
-          db.banks[user.id] = Array.from(bMap.values());
+          }
+          db.banks[user.id] = Array.from(bankMap.values());
         }
 
-        if (cashbacks && Array.isArray(cashbacks)) {
-          const currentCbs = db.cashbacks[user.id] || [];
-          const cbMap = new Map();
-          currentCbs.forEach(c => cbMap.set(c.id, c));
-          cashbacks.forEach(c => {
-            const existing = cbMap.get(c.id);
+        if (Array.isArray(cashbacks)) {
+          const currentCashbacks = db.cashbacks[user.id] || [];
+          const cashbackMap = new Map(currentCashbacks.map(c => [c.id, c]));
+          for (const c of cashbacks) {
+            const existing = cashbackMap.get(c.id);
             if (!existing || new Date(c.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
-              cbMap.set(c.id, { ...existing, ...c, userId: user.id, updatedAt: c.updatedAt || new Date().toISOString() });
+              cashbackMap.set(c.id, c);
             }
-          });
-          db.cashbacks[user.id] = Array.from(cbMap.values());
+          }
+          db.cashbacks[user.id] = Array.from(cashbackMap.values());
         }
 
         if (settings && typeof settings === 'object') {
@@ -351,10 +417,11 @@ const server = http.createServer(async (req, res) => {
 
           const data = await testRes.json();
           const models = data.models || [];
-          const flash = models.find((m) => m.name && m.name.includes('gemini-2.0-flash')) ||
+          const flash = models.find((m) => m.name && m.name.includes('gemini-2.5-flash')) ||
+                        models.find((m) => m.name && m.name.includes('gemini-2.0-flash')) ||
                         models.find((m) => m.name && m.name.includes('gemini-1.5-flash')) ||
                         models[0];
-          const modelName = flash ? flash.name.replace(/^models\//, '') : 'gemini-2.0-flash';
+          const modelName = flash ? flash.name.replace(/^models\//, '') : 'gemini-2.5-flash';
 
           return sendJson(200, {
             success: true,
@@ -381,64 +448,17 @@ const server = http.createServer(async (req, res) => {
         const currentYear = new Date().getFullYear();
         const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`;
-        const reqPayload = {
-          contents: [
-            {
-              parts: [
-                { text: getVisionSystemPrompt(currentYear) },
-                {
-                  inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: cleanBase64,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 1024,
-            responseMimeType: 'application/json',
-          },
-        };
-
-        let geminiRes = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reqPayload),
-        });
-
-        if (!geminiRes.ok) {
-          // Fallback to gemini-1.5-flash
-          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
-          geminiRes = await fetch(fallbackUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reqPayload),
+        try {
+          const result = await executeGeminiOcr(cleanKey, cleanBase64, currentYear);
+          return sendJson(200, {
+            success: true,
+            modelUsed: result.modelUsed,
+            scanResult: result.scanResult,
           });
+        } catch (err) {
+          console.error('Vision OCR failed:', err);
+          return sendJson(500, { success: false, error: `Gemini API Error: ${err.message}` });
         }
-
-        if (!geminiRes.ok) {
-          const errText = await geminiRes.text();
-          return sendJson(500, { success: false, error: `Gemini API Error: ${errText}` });
-        }
-
-        const data = await geminiRes.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(cleanText);
-
-        return sendJson(200, {
-          success: true,
-          scanResult: {
-            bankName: parsed.bankName || 'Неизвестный банк',
-            bankId: parsed.bankId,
-            month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
-            year: typeof parsed.year === 'number' ? parsed.year : currentYear,
-            items: Array.isArray(parsed.items) ? parsed.items : [],
-          },
-        });
       }
 
       // Not Found
