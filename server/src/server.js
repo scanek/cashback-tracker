@@ -440,23 +440,24 @@ const server = http.createServer(async (req, res) => {
           return sendJson(400, { success: false, error: 'base64Image is required' });
         }
 
-        const cleanKey = (apiKey || process.env.GEMINI_API_KEY || '').trim();
-        if (!cleanKey) {
-          return sendJson(400, { success: false, error: 'API key is required' });
-        }
-
+        const DEFAULT_GEMINI_KEY = 'AQ.Ab8RN6KwvfUPXsMTFOkNICNX0tZo4FkhpI3h_PDtmkXKYGz9Ww';
+        const cleanKey = (apiKey || process.env.GEMINI_API_KEY || DEFAULT_GEMINI_KEY).trim();
         const currentYear = new Date().getFullYear();
         const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
 
+        console.log(`📸 [OCR] Получен запрос на распознавание скриншота (длина base64: ${cleanBase64.length})`);
+        console.log(`🔑 [OCR] Используем ключ: ${cleanKey.slice(0, 10)}...`);
+
         try {
           const result = await executeGeminiOcr(cleanKey, cleanBase64, currentYear);
+          console.log(`🎉 [OCR] УСПЕХ! Банк: ${result.scanResult.bankName} (id: ${result.scanResult.bankId}), категорий: ${result.scanResult.items.length}`);
           return sendJson(200, {
             success: true,
             modelUsed: result.modelUsed,
             scanResult: result.scanResult,
           });
         } catch (err) {
-          console.error('Vision OCR failed:', err);
+          console.error('❌ [OCR] Ошибка распознавания:', err.message);
           return sendJson(500, { success: false, error: `Gemini API Error: ${err.message}` });
         }
       }
