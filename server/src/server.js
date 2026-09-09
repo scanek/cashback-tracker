@@ -120,30 +120,61 @@ function getVisionSystemPrompt(currentYear) {
 }`;
 }
 
-// Helper to execute OCR against Google Gemini API with dynamic model discovery
+// Helper to execute OCR against Google Gemini API with dynamic vision model discovery
 async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
   // 1. Discover models available for this key
-  let candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  let candidateModels = [
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-exp',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-pro-latest',
+    'gemini-1.5-pro',
+    'gemini-exp-1206',
+  ];
 
   try {
     const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     if (listRes.ok) {
       const listData = await listRes.json();
       const available = (listData.models || [])
-        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-        .map(m => m.name.replace(/^models\//, ''));
-      
+        .filter((m) => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m) => m.name.replace(/^models\//, ''))
+        // Strictly exclude non-image models (TTS, Audio, Embedding, Imagen, AQA)
+        .filter((name) => {
+          const lower = name.toLowerCase();
+          return (
+            !lower.includes('tts') &&
+            !lower.includes('audio') &&
+            !lower.includes('embed') &&
+            !lower.includes('aqa') &&
+            !lower.includes('imagen') &&
+            !lower.includes('learnlm')
+          );
+        });
+
       if (available.length > 0) {
-        // Sort priority: 2.5-flash -> 2.0-flash -> 2.5-pro -> 1.5-flash -> others
         const sorted = [];
-        for (const pref of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash']) {
-          const match = available.find(m => m.includes(pref));
+        const PREFERRED_ORDER = [
+          'gemini-2.0-flash',
+          'gemini-2.0-flash-exp',
+          'gemini-1.5-flash-latest',
+          'gemini-1.5-flash',
+          'gemini-1.5-flash-8b',
+          'gemini-1.5-pro-latest',
+          'gemini-1.5-pro',
+        ];
+
+        for (const pref of PREFERRED_ORDER) {
+          const match = available.find((m) => m === pref || m.startsWith(pref));
           if (match && !sorted.includes(match)) sorted.push(match);
         }
         for (const m of available) {
           if (!sorted.includes(m)) sorted.push(m);
         }
         candidateModels = sorted;
+        console.log(`🤖 [OCR] Доступные мультимодальные модели (${candidateModels.length}):`, candidateModels.slice(0, 4));
       }
     }
   } catch (e) {
