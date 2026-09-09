@@ -103,63 +103,65 @@ export const BankCard: React.FC<BankCardProps> = ({
       {/* Categories Body */}
       <View style={styles.body}>
         {hasItems ? (
-          <View style={styles.categoriesGrid}>
+          <View style={styles.categoriesFlexWrap}>
             {cashback.items.map((item: CashbackItem, index: number) => {
               const isHigh = item.percent >= 10;
               const isMedium = item.percent >= 5 && item.percent < 10;
 
               return (
-                <View key={item.id || index} style={styles.categoryRow}>
-                  <View style={styles.categoryLeft}>
-                    <View
+                <View
+                  key={item.id || index}
+                  style={[
+                    styles.categoryChip,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: isHigh ? 'rgba(255, 221, 45, 0.4)' : colors.cardBorder,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.percentPill,
+                      {
+                        backgroundColor: isHigh
+                          ? colors.accent
+                          : isMedium
+                          ? colors.badgeBackground
+                          : colors.inputBackground,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.percentBadge,
+                        styles.percentText,
                         {
-                          backgroundColor: isHigh
-                            ? colors.accent
+                          color: isHigh
+                            ? '#0F172A'
                             : isMedium
-                            ? 'rgba(56, 189, 248, 0.12)'
-                            : colors.inputBackground,
-                          borderColor: isHigh
-                            ? colors.accent
-                            : isMedium
-                            ? 'rgba(56, 189, 248, 0.3)'
-                            : colors.inputBorder,
+                            ? colors.accentBlue
+                            : colors.textSecondary,
                         },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.percentText,
-                          {
-                            color: isHigh
-                              ? '#0F172A'
-                              : isMedium
-                              ? colors.accentBlue
-                              : colors.textSecondary,
-                          },
-                        ]}
-                      >
-                        {item.percent}%
-                      </Text>
-                    </View>
+                      {item.percent}%
+                    </Text>
+                  </View>
 
-                    <View style={styles.categoryDetails}>
+                  <View style={styles.categoryTextWrapper}>
+                    <Text
+                      style={[styles.categoryTitle, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {item.category}
+                    </Text>
+                    {item.note ? (
                       <Text
-                        style={[styles.categoryTitle, { color: colors.textPrimary }]}
-                        numberOfLines={2}
+                        style={[styles.categoryNote, { color: colors.textMuted }]}
+                        numberOfLines={1}
                       >
-                        {item.category}
+                        {item.note}
                       </Text>
-                      {item.note ? (
-                        <Text
-                          style={[styles.categoryNote, { color: colors.textMuted }]}
-                          numberOfLines={1}
-                        >
-                          {item.note}
-                        </Text>
-                      ) : null}
-                    </View>
+                    ) : null}
                   </View>
                 </View>
               );
@@ -182,7 +184,7 @@ export const BankCard: React.FC<BankCardProps> = ({
                 onPress={onAdd}
                 activeOpacity={0.7}
               >
-                <Plus size={14} color={colors.accentBlue} style={{ marginRight: 4 }} />
+                <Plus size={13} color={colors.accentBlue} style={{ marginRight: 4 }} />
                 <Text style={[styles.addCategoryBtnText, { color: colors.accentBlue }]}>
                   Выбрать кэшбэк
                 </Text>
@@ -197,17 +199,17 @@ export const BankCard: React.FC<BankCardProps> = ({
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 7,
   },
   bankInfo: {
     flexDirection: 'row',
@@ -217,7 +219,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   bankName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     flexShrink: 1,
   },
@@ -227,72 +229,70 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   miniButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   body: {
-    padding: 12,
+    padding: 8,
   },
-  categoriesGrid: {
-    gap: 8,
+  categoriesFlexWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
-  categoryRow: {
+  categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  categoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  percentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
     borderRadius: 8,
     borderWidth: 1,
-    minWidth: 44,
+    maxWidth: '100%',
+  },
+  percentPill: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginRight: 6,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 9,
   },
   percentText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
-  categoryDetails: {
-    flex: 1,
+  categoryTextWrapper: {
+    flexShrink: 1,
   },
   categoryTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   categoryNote: {
-    fontSize: 11,
-    marginTop: 1,
+    fontSize: 10,
+    marginTop: 0,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   emptyText: {
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: 11,
+    marginBottom: 6,
   },
   addCategoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
     borderWidth: 1,
   },
   addCategoryBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   sharedTag: {
@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#EC4899',
     paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
     marginLeft: 5,
     flexShrink: 0,
   },

@@ -39,6 +39,20 @@ function MainAppContent() {
   useEffect(() => {
     const bootstrap = async () => {
       await StorageService.initializeDefaults();
+
+      // Check URL query parameters for instant 1-click pairing
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.search) {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const pairKey = urlParams.get('pair') || urlParams.get('syncKey');
+          const serverUrl = urlParams.get('server') || urlParams.get('serverUrl');
+          if (pairKey) {
+            await SyncService.pairWithKey(pairKey, serverUrl || undefined);
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch {}
+      }
+
       SyncService.startAutoSync();
       PwaService.init();
       const settings = await StorageService.getSettings();

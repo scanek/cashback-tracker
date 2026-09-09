@@ -156,100 +156,102 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         }}
       />
 
-      {/* Owner Tab Switcher (My Cards vs Partner Cards vs All) */}
-      <View style={styles.tabSwitcherContainer}>
-        <View
-          style={[
-            styles.tabSwitcher,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-        >
-          <TouchableOpacity
+      {/* Owner Tab Switcher (Show only if partner is active or has shared cards) */}
+      {(sharedCashbacksCount > 0 || (partnerName && partnerName !== 'Партнер')) && (
+        <View style={styles.tabSwitcherContainer}>
+          <View
             style={[
-              styles.tabBtn,
-              ownerFilter === 'my' && [
-                styles.tabBtnActive,
-                { backgroundColor: colors.badgeBackground, borderColor: colors.accentBlue },
-              ],
+              styles.tabSwitcher,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
-            onPress={() => setOwnerFilter('my')}
-            activeOpacity={0.7}
           >
-            <User
-              size={13}
-              color={ownerFilter === 'my' ? colors.accentBlue : colors.textMuted}
-              style={{ marginRight: 4 }}
-            />
-            <Text
+            <TouchableOpacity
               style={[
-                styles.tabBtnText,
-                { color: ownerFilter === 'my' ? colors.accentBlue : colors.textSecondary },
-                ownerFilter === 'my' && styles.tabBtnTextActive,
+                styles.tabBtn,
+                ownerFilter === 'my' && [
+                  styles.tabBtnActive,
+                  { backgroundColor: colors.badgeBackground, borderColor: colors.accentBlue },
+                ],
               ]}
-              numberOfLines={1}
+              onPress={() => setOwnerFilter('my')}
+              activeOpacity={0.7}
             >
-              Мои ({myCashbacksCount})
-            </Text>
-          </TouchableOpacity>
+              <User
+                size={12}
+                color={ownerFilter === 'my' ? colors.accentBlue : colors.textMuted}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: ownerFilter === 'my' ? colors.accentBlue : colors.textSecondary },
+                  ownerFilter === 'my' && styles.tabBtnTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Мои ({myCashbacksCount})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              ownerFilter === 'shared' && [
-                styles.tabBtnActive,
-                { backgroundColor: 'rgba(236, 72, 153, 0.12)', borderColor: '#EC4899' },
-              ],
-            ]}
-            onPress={() => setOwnerFilter('shared')}
-            activeOpacity={0.7}
-          >
-            <Heart
-              size={13}
-              color={ownerFilter === 'shared' ? '#EC4899' : colors.textMuted}
-              fill={ownerFilter === 'shared' ? '#EC4899' : 'transparent'}
-              style={{ marginRight: 4 }}
-            />
-            <Text
+            <TouchableOpacity
               style={[
-                styles.tabBtnText,
-                { color: ownerFilter === 'shared' ? '#EC4899' : colors.textSecondary },
-                ownerFilter === 'shared' && styles.tabBtnTextActive,
+                styles.tabBtn,
+                ownerFilter === 'shared' && [
+                  styles.tabBtnActive,
+                  { backgroundColor: 'rgba(236, 72, 153, 0.12)', borderColor: '#EC4899' },
+                ],
               ]}
-              numberOfLines={1}
+              onPress={() => setOwnerFilter('shared')}
+              activeOpacity={0.7}
             >
-              {partnerName} ({sharedCashbacksCount})
-            </Text>
-          </TouchableOpacity>
+              <Heart
+                size={12}
+                color={ownerFilter === 'shared' ? '#EC4899' : colors.textMuted}
+                fill={ownerFilter === 'shared' ? '#EC4899' : 'transparent'}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: ownerFilter === 'shared' ? '#EC4899' : colors.textSecondary },
+                  ownerFilter === 'shared' && styles.tabBtnTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {partnerName} ({sharedCashbacksCount})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              ownerFilter === 'all' && [
-                styles.tabBtnActive,
-                { backgroundColor: colors.inputBackground, borderColor: colors.accent },
-              ],
-            ]}
-            onPress={() => setOwnerFilter('all')}
-            activeOpacity={0.7}
-          >
-            <Users
-              size={13}
-              color={ownerFilter === 'all' ? colors.accent : colors.textMuted}
-              style={{ marginRight: 4 }}
-            />
-            <Text
+            <TouchableOpacity
               style={[
-                styles.tabBtnText,
-                { color: ownerFilter === 'all' ? colors.accent : colors.textSecondary },
-                ownerFilter === 'all' && styles.tabBtnTextActive,
+                styles.tabBtn,
+                ownerFilter === 'all' && [
+                  styles.tabBtnActive,
+                  { backgroundColor: colors.inputBackground, borderColor: colors.accent },
+                ],
               ]}
-              numberOfLines={1}
+              onPress={() => setOwnerFilter('all')}
+              activeOpacity={0.7}
             >
-              Все ({cashbacks.length})
-            </Text>
-          </TouchableOpacity>
+              <Users
+                size={12}
+                color={ownerFilter === 'all' ? colors.accent : colors.textMuted}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: ownerFilter === 'all' ? colors.accent : colors.textSecondary },
+                  ownerFilter === 'all' && styles.tabBtnTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Все ({cashbacks.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       <ScrollView
         style={styles.content}
@@ -258,53 +260,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentBlue} />
         }
       >
-        {/* Quick Stats Banner */}
-        <View style={styles.statsRow}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
-            ]}
-          >
-            <CheckCircle2 size={16} color={colors.accentGreen} />
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-              {displayedCashbacks.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Карт
-            </Text>
+        {/* Compact 1-line Summary */}
+        {displayedCashbacks.length > 0 && (
+          <View style={styles.summaryContainer}>
+            <View
+              style={[
+                styles.summaryBadge,
+                { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              ]}
+            >
+              <Sparkles size={13} color={colors.accent} style={{ marginRight: 6 }} />
+              <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
+                <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>
+                  {displayedCashbacks.length}
+                </Text>{' '}
+                {displayedCashbacks.length === 1 ? 'карта' : displayedCashbacks.length < 5 ? 'карты' : 'карт'} •{' '}
+                <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>
+                  {totalCategories}
+                </Text>{' '}
+                {totalCategories === 1 ? 'категория' : totalCategories < 5 ? 'категории' : 'категорий'} • макс.{' '}
+                <Text style={{ color: colors.accent, fontWeight: '800' }}>{maxPercent}%</Text>
+              </Text>
+            </View>
           </View>
-
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
-            ]}
-          >
-            <Percent size={16} color={colors.accent} />
-            <Text style={[styles.statValue, { color: colors.accent }]}>
-              {maxPercent}%
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Макс. кэшбэк
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
-            ]}
-          >
-            <CreditCard size={16} color={colors.accentBlue} />
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-              {totalCategories}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Категорий
-            </Text>
-          </View>
-        </View>
+        )}
 
         {/* Bank List based on Filter */}
         <View style={styles.bankList}>
@@ -426,25 +405,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabSwitcherContainer: {
-    paddingHorizontal: 14,
-    paddingTop: 2,
+    paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 4,
   },
   tabSwitcher: {
     flexDirection: 'row',
-    borderRadius: 12,
-    padding: 3,
+    borderRadius: 10,
+    padding: 2,
     borderWidth: 1,
-    gap: 3,
+    gap: 2,
   },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 7,
+    paddingVertical: 5,
     paddingHorizontal: 2,
-    borderRadius: 8,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -461,30 +440,24 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
-  statsRow: {
+  summaryContainer: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  summaryBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 10,
-    gap: 8,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: 1,
   },
-  statValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  statLabel: {
-    fontSize: 10,
-    marginTop: 1,
-    textAlign: 'center',
+  summaryText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   bankList: {
     marginTop: 4,

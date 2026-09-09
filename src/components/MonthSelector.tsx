@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react-native';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
 
@@ -16,6 +16,7 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
   onSelectMonth,
 }) => {
   const { colors } = useTheme();
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const handlePrev = () => {
     if (currentMonth === 0) {
@@ -31,6 +32,11 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
     } else {
       onSelectMonth(currentMonth + 1, currentYear);
     }
+  };
+
+  const handleSelectFromPicker = (monthIndex: number) => {
+    onSelectMonth(monthIndex, currentYear);
+    setPickerVisible(false);
   };
 
   return (
@@ -52,10 +58,10 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
           onPress={handlePrev}
           activeOpacity={0.7}
         >
-          <ChevronLeft size={20} color={colors.textSecondary} />
+          <ChevronLeft size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <View
+        <TouchableOpacity
           style={[
             styles.currentMonthBadge,
             {
@@ -63,13 +69,15 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
               borderColor: colors.cardBorder,
             },
           ]}
+          onPress={() => setPickerVisible(true)}
+          activeOpacity={0.7}
         >
-          <Calendar size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+          <Calendar size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
           <Text style={[styles.monthText, { color: colors.textPrimary }]}>
             {MONTH_NAMES_RU[currentMonth]}{' '}
             <Text style={[styles.yearText, { color: colors.textSecondary }]}>{currentYear}</Text>
           </Text>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[
@@ -79,64 +87,90 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
           onPress={handleNext}
           activeOpacity={0.7}
         >
-          <ChevronRight size={20} color={colors.textSecondary} />
+          <ChevronRight size={18} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
+      {/* Quick Month Picker Modal */}
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerVisible(false)}
       >
-        {MONTH_NAMES_RU.map((monthName, index) => {
-          const isSelected = index === currentMonth;
-          return (
-            <TouchableOpacity
-              key={monthName}
-              style={[
-                styles.chip,
-                { backgroundColor: colors.card, borderColor: colors.cardBorder },
-                isSelected && {
-                  backgroundColor: colors.accentBlue,
-                  borderColor: colors.accentBlue,
-                },
-              ]}
-              onPress={() => onSelectMonth(index, currentYear)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: colors.textSecondary },
-                  isSelected && styles.chipTextSelected,
-                ]}
-              >
-                {monthName.slice(0, 3)}
+        <Pressable style={styles.modalOverlay} onPress={() => setPickerVisible(false)}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                Выберите месяц ({currentYear})
               </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+              <TouchableOpacity
+                onPress={() => setPickerVisible(false)}
+                style={styles.modalCloseBtn}
+                activeOpacity={0.7}
+              >
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.monthsGrid}>
+              {MONTH_NAMES_RU.map((monthName, index) => {
+                const isSelected = index === currentMonth;
+                return (
+                  <TouchableOpacity
+                    key={monthName}
+                    style={[
+                      styles.gridItem,
+                      { backgroundColor: colors.background, borderColor: colors.cardBorder },
+                      isSelected && {
+                        backgroundColor: colors.accentBlue,
+                        borderColor: colors.accentBlue,
+                      },
+                    ]}
+                    onPress={() => handleSelectFromPicker(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.gridItemText,
+                        { color: colors.textPrimary },
+                        isSelected && styles.gridItemTextSelected,
+                      ]}
+                    >
+                      {monthName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 10,
   },
   navButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -144,34 +178,70 @@ const styles = StyleSheet.create({
   currentMonthBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 14,
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
   },
   monthText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   yearText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400',
   },
-  scrollContainer: {
-    paddingHorizontal: 14,
-    gap: 6,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+  modalContent: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  monthsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  gridItem: {
+    width: '31%',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
     borderWidth: 1,
   },
-  chipText: {
+  gridItemText: {
     fontSize: 13,
     fontWeight: '600',
   },
-  chipTextSelected: {
+  gridItemTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
   },

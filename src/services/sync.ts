@@ -96,12 +96,33 @@ export class SyncService {
     }, 20000);
   }
 
+  public static async getPairingUrl(): Promise<string> {
+    const key = await this.getSyncKey();
+    const server = await this.getServerUrl();
+    let host = 'localhost';
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+      host = window.location.hostname;
+    }
+    return `http://${host}:8085/?pair=${encodeURIComponent(key)}&server=${encodeURIComponent(server)}`;
+  }
+
   /**
    * Pair this device with a specific sync key from another device
    */
-  public static async pairWithKey(newSyncKey: string): Promise<{ success: boolean; message: string }> {
+  public static async pairWithKey(
+    newSyncKey: string,
+    serverUrlOverride?: string
+  ): Promise<{ success: boolean; message: string }> {
     try {
       this.notify('syncing');
+      
+      if (serverUrlOverride && serverUrlOverride.trim()) {
+        const rawSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+        const settings = rawSettings ? JSON.parse(rawSettings) : {};
+        settings.syncServerUrl = serverUrlOverride.trim();
+        await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      }
+
       const serverUrl = await this.getServerUrl();
       const cleanKey = newSyncKey.trim().toUpperCase();
 
