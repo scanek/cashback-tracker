@@ -14,18 +14,13 @@ export class CashbackMatcher {
     const cleanQuery = query.toLowerCase().trim();
     if (!cleanQuery) return [];
 
-    const resolveBank = (bankId: string): Bank => {
-      const found = banks.find((b) => b.id === bankId) || PRESET_BANKS.find((p) => p.id === bankId);
+    const activeBanks = banks.filter((b) => b.isActive && !b.deletedAt);
+    const activeBankMap = new Map(activeBanks.map((b) => [b.id, b]));
+
+    const resolveBank = (bankId: string): Bank | null => {
+      const found = activeBankMap.get(bankId);
       if (found) return found;
-      return {
-        id: bankId,
-        name: bankId,
-        shortName: bankId,
-        primaryColor: '#38BDF8',
-        textColor: '#FFFFFF',
-        iconName: 'CreditCard',
-        isActive: true,
-      };
+      return null;
     };
 
     // 1. Identify which standard predefined categories match the search query
@@ -42,7 +37,9 @@ export class CashbackMatcher {
 
     // Check every bank's cashback items
     for (const cb of cashbacks) {
+      if (cb.deletedAt) continue;
       const bank = resolveBank(cb.bankId);
+      if (!bank || !bank.isActive) continue;
 
       for (const item of cb.items || []) {
         const itemCatLower = item.category.toLowerCase();
@@ -96,7 +93,9 @@ export class CashbackMatcher {
     // If no direct category matched, add default "1% на все" cards
     if (matches.length === 0) {
       for (const cb of cashbacks) {
+        if (cb.deletedAt) continue;
         const bank = resolveBank(cb.bankId);
+        if (!bank || !bank.isActive) continue;
 
         const allPurchasesItem = (cb.items || []).find(
           (i) =>

@@ -24,6 +24,7 @@ interface AddCashbackModalProps {
   initialCashback?: MonthlyCashback;
   onClose: () => void;
   onSave: (cashback: MonthlyCashback) => void;
+  onDelete?: () => void;
 }
 
 const COMMON_PERCENTS = [1, 3, 5, 6, 7, 10, 15, 20];
@@ -36,6 +37,7 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
   initialCashback,
   onClose,
   onSave,
+  onDelete,
 }) => {
   const { colors } = useTheme();
   const [items, setItems] = useState<CashbackItem[]>([]);
@@ -162,7 +164,7 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
                       ) : null}
                     </View>
                     <TouchableOpacity
-                      style={styles.deleteBtn}
+                      style={styles.deleteItemBtn}
                       onPress={() => handleRemoveItem(item.id)}
                     >
                       <Trash2 size={16} color={colors.accentRed} />
@@ -323,14 +325,35 @@ export const AddCashbackModal: React.FC<AddCashbackModalProps> = ({
             </View>
           </ScrollView>
 
-          {/* Footer Save Button */}
+          {/* Footer Save & Delete Buttons */}
           <View style={[styles.footer, { borderTopColor: colors.cardBorder }]}>
+            {onDelete && initialCashback && (
+              <TouchableOpacity
+                style={[
+                  styles.clearAllBtn,
+                  {
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    borderColor: 'rgba(239, 68, 68, 0.35)',
+                  },
+                ]}
+                onPress={() => {
+                  onDelete();
+                  onClose();
+                }}
+                activeOpacity={0.8}
+              >
+                <Trash2 size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                <Text style={styles.clearAllBtnText}>Очистить</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: colors.accent }]}
+              style={[styles.saveBtn, { backgroundColor: colors.accent, flex: 1 }]}
               onPress={handleSaveAll}
+              activeOpacity={0.8}
             >
               <Check size={18} color="#0F172A" style={{ marginRight: 8 }} />
-              <Text style={styles.saveBtnText}>Сохранить кэшбэк на месяц</Text>
+              <Text style={styles.saveBtnText}>Сохранить</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -417,7 +440,7 @@ const styles = StyleSheet.create({
   itemNote: {
     fontSize: 11,
   },
-  deleteBtn: {
+  deleteItemBtn: {
     padding: 6,
   },
   addFormCard: {
@@ -502,6 +525,23 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     borderTopWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  clearAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  clearAllBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#EF4444',
   },
   saveBtn: {
     flexDirection: 'row',

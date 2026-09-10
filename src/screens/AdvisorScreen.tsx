@@ -338,26 +338,23 @@ export const AdvisorScreen: React.FC = () => {
   }, [query, banks, cashbacks]);
 
   const resolveBank = useCallback(
-    (bankId: string): Bank => {
-      const found = banks.find((b) => b.id === bankId) || PRESET_BANKS.find((p) => p.id === bankId);
+    (bankId: string): Bank | null => {
+      const found = banks.find((b) => b.id === bankId && b.isActive && !b.deletedAt);
       if (found) return found;
-      return {
-        id: bankId,
-        name: bankId,
-        shortName: bankId,
-        primaryColor: '#38BDF8',
-        textColor: '#FFFFFF',
-        iconName: 'CreditCard',
-        isActive: true,
-      };
+      return null;
     },
     [banks]
   );
 
   const allOffers = useMemo(() => {
+    const activeBankMap = new Map(
+      banks.filter((b) => b.isActive && !b.deletedAt).map((b) => [b.id, b])
+    );
+
     return cashbacks
+      .filter((cb) => !cb.deletedAt && activeBankMap.has(cb.bankId))
       .flatMap((cb) => {
-        const bank = resolveBank(cb.bankId);
+        const bank = activeBankMap.get(cb.bankId)!;
         return (cb.items || []).map((item) => ({
           bank,
           item,
@@ -371,7 +368,7 @@ export const AdvisorScreen: React.FC = () => {
         }
         return a.bank.name.localeCompare(b.bank.name);
       });
-  }, [cashbacks, resolveBank]);
+  }, [cashbacks, banks]);
 
   const filteredOffers = useMemo(() => {
     return allOffers.filter((o) => {

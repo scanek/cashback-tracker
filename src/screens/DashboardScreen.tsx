@@ -387,6 +387,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           initialCashback={editingCashback || undefined}
           onClose={() => setModalVisible(false)}
           onSave={handleSaveCashback}
+          onDelete={
+            editingCashback
+              ? () => handleDeleteCashback(selectedBank.id, editingCashback.isShared)
+              : undefined
+          }
         />
       )}
 

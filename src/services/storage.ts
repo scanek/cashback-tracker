@@ -152,6 +152,19 @@ export class StorageService {
         : b
     );
     await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
+
+    // Also mark all cashbacks for this bank as deleted
+    const rawCb = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
+    if (rawCb) {
+      const allCb: MonthlyCashback[] = JSON.parse(rawCb);
+      const updatedCb = allCb.map(c =>
+        c.bankId === bankId
+          ? { ...c, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+          : c
+      );
+      await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(updatedCb));
+    }
+
     SyncService.performSync().catch(() => {});
     return updated.filter(b => !b.deletedAt);
   }
