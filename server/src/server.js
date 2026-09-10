@@ -427,8 +427,13 @@ const server = http.createServer(async (req, res) => {
 
         if (Array.isArray(cashbacks)) {
           const currentCashbacks = db.cashbacks[user.id] || [];
+          const hasRealInCloud = currentCashbacks.some(c => !c.id.startsWith('sample-'));
           const cashbackMap = new Map(currentCashbacks.map(c => [c.id, c]));
           for (const c of cashbacks) {
+            // Never let sample-* cashbacks overwrite real user data in cloud
+            if (hasRealInCloud && c.id && c.id.startsWith('sample-')) {
+              continue;
+            }
             const existing = cashbackMap.get(c.id);
             if (!existing || new Date(c.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
               cashbackMap.set(c.id, c);

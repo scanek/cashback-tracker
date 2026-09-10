@@ -193,8 +193,14 @@ export class SyncService {
         if (pullData.banks && pullData.banks.length > 0) {
           await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(pullData.banks));
         }
-        if (pullData.cashbacks && pullData.cashbacks.length > 0) {
+        if (pullData.cashbacks && Array.isArray(pullData.cashbacks) && pullData.cashbacks.length > 0) {
           await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(pullData.cashbacks));
+        }
+        if (pullData.settings && Object.keys(pullData.settings).length > 0) {
+          const rawSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+          const currentSettings = rawSettings ? JSON.parse(rawSettings) : {};
+          const mergedSettings = { ...currentSettings, ...pullData.settings, syncKey: cleanKey };
+          await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(mergedSettings));
         }
         if (pullData.serverTime) {
           await AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, pullData.serverTime);
@@ -203,7 +209,7 @@ export class SyncService {
 
       // 2. Perform full sync
       await this.performSync();
-      return { success: true, message: `Успешно подключено к синхро-коду: ${cleanKey}! Все кэшбэки объединены.` };
+      return { success: true, message: `Успешно подключено к синхро-коду: ${cleanKey}! Все кэшбэки загружены.` };
     } catch (e: any) {
       this.notify('error', undefined, e.message);
       return { success: false, message: `Ошибка подключения: ${e.message}` };
@@ -283,10 +289,13 @@ export class SyncService {
       let mergedCashbacks = [...localCashbacks];
       if (serverCashbacks.length > 0) {
         const cbMap = new Map<string, MonthlyCashback>();
-        mergedCashbacks.forEach((c) => cbMap.set(c.id, c));
+        // Only keep existing if they are NOT sample-* placeholders
+        mergedCashbacks
+          .filter((c) => !c.id.startsWith('sample-'))
+          .forEach((c) => cbMap.set(c.id, c));
         serverCashbacks.forEach((sc) => {
           const existing = cbMap.get(sc.id);
-          if (!existing || existing.id.startsWith('sample-') || new Date(sc.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+          if (!existing || new Date(sc.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
             cbMap.set(sc.id, sc);
           }
         });

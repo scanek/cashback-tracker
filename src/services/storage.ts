@@ -88,9 +88,10 @@ export class StorageService {
     try {
       const initialized = await AsyncStorage.getItem(STORAGE_KEYS.INITIALIZED);
       if (!initialized) {
-        const banksWithTime = PRESET_BANKS.map(b => ({ ...b, updatedAt: new Date().toISOString() }));
+        const banksWithTime = PRESET_BANKS.map(b => ({ ...b, updatedAt: '2020-01-01T00:00:00.000Z' }));
+        const sampleWithOldTime = SAMPLE_CASHBACKS.map(c => ({ ...c, updatedAt: '2020-01-01T00:00:00.000Z' }));
         await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(banksWithTime));
-        await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(SAMPLE_CASHBACKS));
+        await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(sampleWithOldTime));
         await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
         await AsyncStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
       }
