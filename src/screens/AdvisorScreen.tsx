@@ -388,7 +388,7 @@ export const AdvisorScreen: React.FC = () => {
 
   const sharedCount = allOffers.filter((o) => o.isShared).length;
 
-  // Best fallback card for all purchases (1% base)
+  // Best fallback card for all purchases (1% base) - ONLY from banks the user actually has active offers for
   const defaultFallbackOffers = useMemo(() => {
     const allPurchases = filteredOffers.filter((o) => {
       const lower = o.item.category.toLowerCase();
@@ -405,9 +405,13 @@ export const AdvisorScreen: React.FC = () => {
       return allPurchases;
     }
 
-    const activeBanks = banks.filter((b) => b.isActive);
-    if (activeBanks.length > 0) {
-      return activeBanks.map((b) => ({
+    // Only use banks that the user actually has in this month's active offers
+    const banksInUse = Array.from(
+      new Map(filteredOffers.map((o) => [o.bank.id, o.bank])).values()
+    );
+
+    if (banksInUse.length > 0) {
+      return banksInUse.map((b) => ({
         bank: b,
         item: {
           id: `fallback-all-${b.id}`,
@@ -421,7 +425,7 @@ export const AdvisorScreen: React.FC = () => {
     }
 
     return [];
-  }, [filteredOffers, banks]);
+  }, [filteredOffers]);
 
   const groupedCategories: GroupedCategory[] = useMemo(() => {
     const map = new Map<string, GroupedCategory>();
@@ -443,31 +447,33 @@ export const AdvisorScreen: React.FC = () => {
       }
     });
 
-    // 2. GUARANTEE that Supermarkets, Pharmacies, and Fuel ALWAYS appear
-    MANDATORY_CATEGORIES.forEach((mandatory) => {
-      const hasCategory = Array.from(map.keys()).some((catKey) => {
-        const lower = catKey.toLowerCase();
-        return mandatory.keywords.some((kw) => lower.includes(kw));
-      });
-
-      if (!hasCategory && defaultFallbackOffers.length > 0) {
-        map.set(mandatory.name, {
-          category: mandatory.name,
-          maxPercent: defaultFallbackOffers[0]?.item.percent || 1,
-          offers: defaultFallbackOffers.map((d) => ({
-            bank: d.bank,
-            item: {
-              id: `mandatory-${d.bank.id}-${mandatory.name}`,
-              category: mandatory.name,
-              percent: d.item.percent || 1,
-              note: '1% базовый кэшбэк',
-            },
-            isShared: d.isShared,
-            sharedByName: d.sharedByName,
-          })),
+    // 2. Only add mandatory categories fallback if user has active banks with offers
+    if (defaultFallbackOffers.length > 0) {
+      MANDATORY_CATEGORIES.forEach((mandatory) => {
+        const hasCategory = Array.from(map.keys()).some((catKey) => {
+          const lower = catKey.toLowerCase();
+          return mandatory.keywords.some((kw) => lower.includes(kw));
         });
-      }
-    });
+
+        if (!hasCategory) {
+          map.set(mandatory.name, {
+            category: mandatory.name,
+            maxPercent: defaultFallbackOffers[0]?.item.percent || 1,
+            offers: defaultFallbackOffers.map((d) => ({
+              bank: d.bank,
+              item: {
+                id: `mandatory-${d.bank.id}-${mandatory.name}`,
+                category: mandatory.name,
+                percent: d.item.percent || 1,
+                note: '1% базовый кэшбэк',
+              },
+              isShared: d.isShared,
+              sharedByName: d.sharedByName,
+            })),
+          });
+        }
+      });
+    }
 
     // 3. SORT: Supermarkets (#1), Pharmacies (#2), Fuel (#3) FIRST, then by highest %
     return Array.from(map.values())
@@ -527,8 +533,12 @@ export const AdvisorScreen: React.FC = () => {
   }, [filteredOffers]);
 
   useEffect(() => {
-    if (activeMonthBanks.length > 0 && !selectedBankId) {
-      setSelectedBankId(activeMonthBanks[0].bank.id);
+    if (activeMonthBanks.length > 0) {
+      if (!selectedBankId || !activeMonthBanks.some((b) => b.bank.id === selectedBankId)) {
+        setSelectedBankId(activeMonthBanks[0].bank.id);
+      }
+    } else {
+      setSelectedBankId(null);
     }
   }, [activeMonthBanks, selectedBankId]);
 
