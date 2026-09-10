@@ -41,15 +41,30 @@ export class SyncService {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.syncServerUrl && parsed.syncServerUrl.trim()) {
-          return parsed.syncServerUrl.trim();
+          let customUrl = parsed.syncServerUrl.trim();
+          // If page is on HTTPS, upgrade custom http:// URL to https:// or same-origin to prevent Mixed Content blocking
+          if (
+            Platform.OS === 'web' &&
+            typeof window !== 'undefined' &&
+            window.location.protocol === 'https:' &&
+            customUrl.startsWith('http://')
+          ) {
+            customUrl = customUrl.replace(/^http:\/\//i, 'https://');
+          }
+          return customUrl;
         }
       }
     } catch {}
 
-    // Auto-detect host IP / domain on Web
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-      const host = window.location.hostname;
-      return `http://${host}:4000`;
+    // Auto-detect on Web: use same-origin on HTTPS or domain to route via Nginx /api/ proxy without CORS/Mixed-Content issues
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (
+        window.location.protocol === 'https:' ||
+        (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+      ) {
+        return window.location.origin;
+      }
+      return `http://${window.location.hostname}:4000`;
     }
 
     return DEFAULT_SYNC_SERVER_URL;

@@ -396,7 +396,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={styles.serverUrlRow}>
             <TextInput
               style={[styles.serverUrlInput, { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.inputBorder }]}
-              placeholder="Адрес сервера: http://localhost:4000"
+              placeholder="Адрес сервера: https://cash.scanek.ru"
               placeholderTextColor={colors.textMuted}
               value={serverUrl}
               onChangeText={setServerUrl}
