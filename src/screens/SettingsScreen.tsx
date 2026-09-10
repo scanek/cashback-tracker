@@ -85,6 +85,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [serverUrl, setServerUrl] = useState<string>('');
   const [isPairModalVisible, setIsPairModalVisible] = useState<boolean>(false);
   const [syncingNow, setSyncingNow] = useState<boolean>(false);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState<boolean>(true);
 
   // Month state for sharing / export
   const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth());
@@ -103,6 +104,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setNotificationsEnabled(s.enableMonthlyReminders);
     setPartnerName(s.partnerName || 'Партнер');
     setAdvisorViewMode(s.advisorViewMode || 'compact');
+    setAutoSyncEnabled(s.autoSyncEnabled ?? true);
     if (s.widgetTheme) {
       setWidgetTheme(s.widgetTheme as WidgetThemeMode);
     }
@@ -227,6 +229,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const clean = serverUrl.trim();
     await StorageService.saveSettings({ syncServerUrl: clean });
     showCustomAlert('Сохранено', `Адрес сервера синхронизации сохранен: ${clean}`);
+  };
+
+  const handleToggleAutoSync = async (enabled: boolean) => {
+    setAutoSyncEnabled(enabled);
+    await StorageService.saveSettings({ autoSyncEnabled: enabled });
+    if (enabled) {
+      SyncService.startAutoSync();
+    } else {
+      SyncService.stopAutoSync();
+    }
   };
 
   const handleManualSync = async () => {
@@ -398,6 +410,36 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             >
               <Text style={styles.serverUrlSaveBtnText}>Сохранить</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Auto-sync Toggle */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 12,
+              paddingTop: 12,
+              borderTopWidth: 1,
+              borderTopColor: colors.cardBorder,
+            }}
+          >
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
+                Автоматическая синхронизация
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                {autoSyncEnabled
+                  ? 'Фоновый обмен данными каждые 20 сек'
+                  : 'Синхронизация только по запросу (по кнопке)'}
+              </Text>
+            </View>
+            <Switch
+              value={autoSyncEnabled}
+              onValueChange={handleToggleAutoSync}
+              trackColor={{ false: colors.inputBackground, true: colors.accent }}
+              thumbColor={autoSyncEnabled ? '#0F172A' : colors.textSecondary}
+            />
           </View>
         </View>
 

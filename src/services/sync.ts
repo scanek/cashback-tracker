@@ -83,9 +83,22 @@ export class SyncService {
    * Initialize automatic sync on startup and recurring intervals
    */
   public static async startAutoSync() {
-    if (this.syncInterval) clearInterval(this.syncInterval);
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
+
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.autoSyncEnabled === false) {
+          return; // User disabled auto-sync
+        }
+      }
+    } catch {}
     
-    // Initial sync
+    // Initial sync in background (non-blocking)
     setTimeout(() => {
       this.performSync().catch(() => {});
     }, 1500);
@@ -94,6 +107,13 @@ export class SyncService {
     this.syncInterval = setInterval(() => {
       this.performSync().catch(() => {});
     }, 20000);
+  }
+
+  public static stopAutoSync() {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
   }
 
   public static async getPairingUrl(): Promise<string> {
