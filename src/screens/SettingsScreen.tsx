@@ -60,8 +60,6 @@ import {
   Search,
   CreditCard,
 } from 'lucide-react-native';
-import { WidgetThemeMode } from '../widgets/CashbackWidget';
-import { WidgetService } from '../services/widget';
 import { SecurityService } from '../services/security';
 import { PinLockScreen } from './PinLockScreen';
 import { Lock, Unlock, KeyRound } from 'lucide-react-native';
@@ -78,7 +76,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [testingKey, setTestingKey] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
-  const [widgetTheme, setWidgetTheme] = useState<WidgetThemeMode>('dark');
   const [advisorViewMode, setAdvisorViewMode] = useState<AdvisorViewMode>('compact');
   const [partnerName, setPartnerName] = useState<string>('Партнер');
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -106,9 +103,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setPartnerName(s.partnerName || 'Партнер');
     setAdvisorViewMode(s.advisorViewMode || 'compact');
     setAutoSyncEnabled(s.autoSyncEnabled ?? true);
-    if (s.widgetTheme) {
-      setWidgetTheme(s.widgetTheme as WidgetThemeMode);
-    }
 
     const key = await SyncService.getSyncKey();
     const sUrl = await SyncService.getServerUrl();
@@ -159,10 +153,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  const handleSetWidgetTheme = async (mode: WidgetThemeMode) => {
-    setWidgetTheme(mode);
-    await StorageService.saveSettings({ widgetTheme: mode });
-    WidgetService.updateWidget(mode);
+  const handleCopySyncKey = async () => {
+    const normalized = SyncService.normalizeKey(syncKey) || syncKey;
+    if (!normalized) return;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(normalized);
+        showCustomAlert('Скопировано', 'Синхро-код скопирован в буфер обмена!');
+        return;
+      } catch {}
+    }
+    showCustomAlert('Синхро-код', normalized);
   };
 
   const handleSetAdvisorViewMode = async (mode: AdvisorViewMode) => {
@@ -343,7 +344,44 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title="Настройки" subtitle="Параметры темы, AI, импорта и экспорта" />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Mobile App & PWA Card (Compact) */}
+        {!PwaService.isStandalone() && Platform.OS === 'web' && (
+          <View
+            style={[
+              styles.card,
+              styles.pwaCard,
+              { backgroundColor: colors.card, borderColor: '#38BDF8' },
+            ]}
+          >
+            <View style={styles.pwaBannerContent}>
+              <View style={styles.pwaIconBadge}>
+                <Smartphone size={18} color="#38BDF8" />
+              </View>
+              <View style={styles.pwaTextWrap}>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary, fontSize: 13 }]}>
+                  Установить приложение
+                </Text>
+                <Text style={[styles.pwaSubText, { color: colors.textSecondary }]}>
+                  Быстрый запуск с экрана «Домой» и работа без интернета (PWA)
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.pwaInstallBtn}
+                onPress={() => PwaService.promptInstall()}
+                activeOpacity={0.8}
+              >
+                <Download size={13} color="#0F172A" style={{ marginRight: 4 }} />
+                <Text style={styles.pwaInstallBtnText}>Установить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Cloud Sync Card */}
         <View
           style={[
@@ -365,12 +403,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <Text style={[styles.syncKeyLabel, { color: colors.textSecondary }]}>
               Ваш цифровой синхро-код устройства:
             </Text>
-            <Text style={[styles.syncKeyVal, { color: colors.accent }]}>
-              {SyncService.normalizeKey(syncKey) || syncKey || 'Загрузка...'}
-            </Text>
+            <View style={styles.syncKeyRow}>
+              <Text style={[styles.syncKeyVal, { color: colors.accent }]} numberOfLines={1}>
+                {SyncService.normalizeKey(syncKey) || syncKey || 'Загрузка...'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.copyKeyBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+                onPress={handleCopySyncKey}
+                activeOpacity={0.7}
+              >
+                <Copy size={13} color={colors.accent} style={{ marginRight: 4 }} />
+                <Text style={[styles.copyKeyBtnText, { color: colors.accent }]}>Копия</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.syncBtnRow}>
+          <View style={styles.syncBtnCol}>
             <TouchableOpacity
               style={[styles.pairDeviceBtn, { backgroundColor: colors.accent }]}
               onPress={() => setIsPairModalVisible(true)}
@@ -381,51 +429,51 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.manualSyncBtn, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+              style={[styles.manualSyncBtn, { backgroundColor: colors.inputBackground, borderColor: colors.accentBlue }]}
               onPress={handleManualSync}
               disabled={syncingNow}
               activeOpacity={0.8}
             >
-              <RefreshCw size={16} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <RefreshCw size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
               <Text style={[styles.manualSyncBtnText, { color: colors.accentBlue }]}>
-                {syncingNow ? 'Синхронизация...' : 'Синхронизировать'}
+                {syncingNow ? 'Синхронизация...' : 'Синхронизировать сейчас'}
               </Text>
             </TouchableOpacity>
           </View>
 
           {/* Server URL Config */}
-          <View style={styles.serverUrlRow}>
-            <TextInput
-              style={[styles.serverUrlInput, { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.inputBorder }]}
-              placeholder="Адрес сервера: https://cash.scanek.ru"
-              placeholderTextColor={colors.textMuted}
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              style={[styles.serverUrlSaveBtn, { backgroundColor: colors.accentBlue }]}
-              onPress={handleSaveServerUrl}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.serverUrlSaveBtnText}>Сохранить</Text>
-            </TouchableOpacity>
+          <View style={styles.serverUrlSection}>
+            <Text style={[styles.serverUrlLabel, { color: colors.textSecondary }]}>
+              Адрес сервера синхронизации:
+            </Text>
+            <View style={styles.serverUrlRow}>
+              <TextInput
+                style={[styles.serverUrlInput, { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.inputBorder }]}
+                placeholder="https://cash.scanek.ru"
+                placeholderTextColor={colors.textMuted}
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[styles.serverUrlSaveBtn, { backgroundColor: colors.accentBlue }]}
+                onPress={handleSaveServerUrl}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.serverUrlSaveBtnText}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Auto-sync Toggle */}
           <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 12,
-              paddingTop: 12,
-              borderTopWidth: 1,
-              borderTopColor: colors.cardBorder,
-            }}
+            style={[
+              styles.autoSyncRow,
+              { borderTopColor: colors.cardBorder },
+            ]}
           >
-            <View style={{ flex: 1, marginRight: 12 }}>
+            <View style={{ flex: 1, marginRight: 10, minWidth: 0 }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
                 Автоматическая синхронизация
               </Text>
@@ -443,46 +491,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
           </View>
         </View>
-
-        {/* Mobile App & PWA Card (Compact) */}
-        {!PwaService.isStandalone() && Platform.OS === 'web' && (
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder, paddingVertical: 12 },
-            ]}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 180 }}>
-                <Smartphone size={18} color="#38BDF8" style={{ marginRight: 8 }} />
-                <View>
-                  <Text style={[styles.cardTitle, { color: colors.textPrimary, fontSize: 13 }]}>
-                    Установить приложение
-                  </Text>
-                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                    Быстрый запуск с домашнего экрана и работа офлайн (PWA)
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#38BDF8',
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  borderRadius: 8,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                }}
-                onPress={() => PwaService.promptInstall()}
-                activeOpacity={0.8}
-              >
-                <Download size={14} color="#0F172A" style={{ marginRight: 5 }} />
-                <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '800' }}>Установить</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
 
         {/* Operations & Sharing Card */}
         <View
@@ -864,89 +872,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </View>
 
-        {/* Widget Theme Card */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <LayoutGrid size={18} color={colors.accent} style={{ marginRight: 8 }} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              Тема виджета на рабочем столе
-            </Text>
-          </View>
-          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Выберите стиль виджета (также переключается по нажатию иконки темы на самом виджете).
-          </Text>
-
-          <View style={styles.themeToggleRow}>
-            <TouchableOpacity
-              style={[
-                styles.themeOptionBtn,
-                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
-                widgetTheme === 'dark' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
-              ]}
-              onPress={() => handleSetWidgetTheme('dark')}
-              activeOpacity={0.7}
-            >
-              <Moon size={15} color={widgetTheme === 'dark' ? colors.accent : colors.textMuted} style={{ marginRight: 4 }} />
-              <Text
-                style={[
-                  styles.themeOptionText,
-                  { color: widgetTheme === 'dark' ? colors.accent : colors.textSecondary },
-                ]}
-                numberOfLines={1}
-              >
-                Темная
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.themeOptionBtn,
-                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
-                widgetTheme === 'light' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
-              ]}
-              onPress={() => handleSetWidgetTheme('light')}
-              activeOpacity={0.7}
-            >
-              <Sun size={15} color={widgetTheme === 'light' ? colors.accent : colors.textMuted} style={{ marginRight: 4 }} />
-              <Text
-                style={[
-                  styles.themeOptionText,
-                  { color: widgetTheme === 'light' ? colors.accent : colors.textSecondary },
-                ]}
-                numberOfLines={1}
-              >
-                Светлая
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.themeOptionBtn,
-                { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
-                widgetTheme === 'transparent' && [styles.themeOptionBtnActive, { borderColor: colors.accent }],
-              ]}
-              onPress={() => handleSetWidgetTheme('transparent')}
-              activeOpacity={0.7}
-            >
-              <Sparkles size={15} color={widgetTheme === 'transparent' ? colors.accent : colors.textMuted} style={{ marginRight: 4 }} />
-              <Text
-                style={[
-                  styles.themeOptionText,
-                  { color: widgetTheme === 'transparent' ? colors.accent : colors.textSecondary },
-                ]}
-                numberOfLines={1}
-              >
-                Стекло
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Gemini Vision API Key Card */}
         <View
           style={[
@@ -1176,34 +1101,36 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
           )}
 
-          <View style={styles.backupActions}>
-            <TouchableOpacity
-              style={[
-                styles.backupBtn,
-                { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
-              ]}
-              onPress={handleExportBackup}
-              activeOpacity={0.7}
-            >
-              <Download size={14} color={colors.accentBlue} style={{ marginRight: 4 }} />
-              <Text style={[styles.backupBtnText, { color: colors.accentBlue }]} numberOfLines={1}>
-                Создать бэкап
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.backupActionsGrid}>
+            <View style={styles.backupRowTop}>
+              <TouchableOpacity
+                style={[
+                  styles.backupBtn,
+                  { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder },
+                ]}
+                onPress={handleExportBackup}
+                activeOpacity={0.7}
+              >
+                <Download size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+                <Text style={[styles.backupBtnText, { color: colors.accentBlue }]} numberOfLines={1}>
+                  Создать бэкап
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.backupBtn,
-                { backgroundColor: colors.inputBackground, borderColor: colors.accentGreen },
-              ]}
-              onPress={handleImportBackup}
-              activeOpacity={0.7}
-            >
-              <Upload size={14} color={colors.accentGreen} style={{ marginRight: 4 }} />
-              <Text style={[styles.backupBtnText, { color: colors.accentGreen }]} numberOfLines={1}>
-                Восстановить
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.backupBtn,
+                  { backgroundColor: colors.inputBackground, borderColor: colors.accentGreen },
+                ]}
+                onPress={handleImportBackup}
+                activeOpacity={0.7}
+              >
+                <Upload size={14} color={colors.accentGreen} style={{ marginRight: 6 }} />
+                <Text style={[styles.backupBtnText, { color: colors.accentGreen }]} numberOfLines={1}>
+                  Восстановить
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={[
@@ -1213,9 +1140,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={handleResetSampleData}
               activeOpacity={0.7}
             >
-              <RefreshCw size={13} color={colors.accentRed} style={{ marginRight: 4 }} />
+              <RefreshCw size={13} color={colors.accentRed} style={{ marginRight: 6 }} />
               <Text style={[styles.resetBtnText, { color: colors.accentRed }]} numberOfLines={1}>
-                Сброс
+                Сбросить к исходным данным
               </Text>
             </TouchableOpacity>
           </View>
@@ -1297,14 +1224,68 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+  },
+  contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
+    paddingBottom: 60,
+    maxWidth: 640,
+    width: '100%',
+    alignSelf: 'center',
   },
   card: {
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     marginBottom: 16,
+    width: '100%',
+  },
+  pwaCard: {
+    borderWidth: 1.5,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  pwaBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    width: '100%',
+  },
+  pwaIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  pwaTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 6,
+  },
+  pwaSubText: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  pwaInstallBtn: {
+    backgroundColor: '#38BDF8',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  pwaInstallBtnText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '800',
   },
   aboutCard: {
     borderColor: '#38BDF8',
@@ -1314,11 +1295,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
+    width: '100%',
   },
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    flexShrink: 1,
+    flex: 1,
+    minWidth: 0,
   },
   cardDescription: {
     fontSize: 12,
@@ -1330,13 +1313,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 12,
+    width: '100%',
   },
   monthArrowBtn: {
-    padding: 6,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1345,9 +1330,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     flex: 1,
+    minWidth: 0,
   },
   operationsGrid: {
     gap: 8,
+    width: '100%',
   },
   operationBtn: {
     flexDirection: 'row',
@@ -1357,6 +1344,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
+    width: '100%',
   },
   primaryOperationBtnText: {
     fontSize: 13,
@@ -1374,9 +1362,11 @@ const styles = StyleSheet.create({
   themeToggleRow: {
     flexDirection: 'row',
     gap: 8,
+    width: '100%',
   },
   themeOptionBtn: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1399,22 +1389,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     marginBottom: 12,
+    width: '100%',
   },
   apiInput: {
     flex: 1,
+    minWidth: 0,
     paddingVertical: 10,
     fontSize: 13,
   },
   eyeBtn: {
     padding: 6,
+    flexShrink: 0,
   },
   keyActionsRow: {
     flexDirection: 'row',
     gap: 10,
     marginBottom: 10,
+    width: '100%',
   },
   saveKeyBtn: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1428,6 +1423,7 @@ const styles = StyleSheet.create({
   },
   testKeyBtn: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1442,10 +1438,12 @@ const styles = StyleSheet.create({
   apiKeyHint: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
   },
   apiKeyHintText: {
     fontSize: 11,
     flex: 1,
+    minWidth: 0,
   },
   switchRow: {
     flexDirection: 'row',
@@ -1453,11 +1451,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 4,
     marginBottom: 12,
+    width: '100%',
   },
   switchLabel: {
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   testNotificationBtn: {
     paddingVertical: 11,
@@ -1465,42 +1466,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    width: '100%',
   },
   testNotificationBtnText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  backupActions: {
+  backupActionsGrid: {
+    gap: 8,
+    width: '100%',
+  },
+  backupRowTop: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
+    width: '100%',
   },
   backupBtn: {
-    flex: 1.1,
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
     borderRadius: 12,
     borderWidth: 1,
   },
   backupBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     flexShrink: 1,
   },
   resetBtn: {
-    flex: 0.8,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
     borderRadius: 12,
     borderWidth: 1,
   },
   resetBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     flexShrink: 1,
   },
@@ -1513,6 +1521,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderWidth: 1,
     borderColor: 'rgba(236, 72, 153, 0.3)',
+    width: '100%',
   },
   dedicationText: {
     fontSize: 12,
@@ -1520,6 +1529,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 18,
     flex: 1,
+    minWidth: 0,
   },
   versionText: {
     fontSize: 11,
@@ -1531,7 +1541,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 12,
-    alignItems: 'center',
+    width: '100%',
   },
   syncKeyLabel: {
     fontSize: 11,
@@ -1540,35 +1550,57 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 4,
   },
-  syncKeyVal: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  syncBtnRow: {
+  syncKeyRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 12,
+    width: '100%',
+  },
+  syncKeyVal: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    flex: 1,
+    minWidth: 0,
+  },
+  copyKeyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  copyKeyBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  syncBtnCol: {
+    gap: 8,
+    marginBottom: 14,
+    width: '100%',
   },
   pairDeviceBtn: {
-    flex: 1.2,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
   },
   pairDeviceBtnText: {
     color: '#0F172A',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
   },
   manualSyncBtn: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -1576,40 +1608,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  serverUrlSection: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  serverUrlLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
   serverUrlRow: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
+    width: '100%',
   },
   serverUrlInput: {
     flex: 1,
-    height: 38,
+    minWidth: 0,
+    height: 40,
     borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     fontSize: 12,
   },
   serverUrlSaveBtn: {
-    paddingHorizontal: 12,
-    height: 38,
+    paddingHorizontal: 14,
+    height: 40,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   serverUrlSaveBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
-  infoBox: {
+  autoSyncRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  infoBoxText: {
-    fontSize: 12,
-    lineHeight: 17,
-    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    width: '100%',
   },
 });

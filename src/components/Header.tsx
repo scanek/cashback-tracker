@@ -97,6 +97,8 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
+    marginRight: 10,
+    minWidth: 0,
   },
   titleRow: {
     flexDirection: 'row',
@@ -118,6 +120,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   actionButton: {
     width: 38,

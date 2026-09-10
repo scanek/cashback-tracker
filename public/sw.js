@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cashback-hub-cache-v10';
+const CACHE_NAME = 'cashback-hub-cache-v11';
 
 // Assets to pre-cache on install
 const PRECACHE_ASSETS = [
