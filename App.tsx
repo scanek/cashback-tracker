@@ -21,6 +21,7 @@ import { PwaService } from './src/services/pwa';
 import { NotificationService } from './src/services/notifications';
 import { SecurityService } from './src/services/security';
 import { PinLockScreen } from './src/screens/PinLockScreen';
+import { APP_VERSION } from './src/constants/version';
 import {
   CreditCard,
   Sparkles,
@@ -237,6 +238,11 @@ function MainAppContent() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Footer Version Indicator */}
+          <Text style={[styles.footerVersionText, { color: colors.textMuted }]}>
+            v{APP_VERSION}
+          </Text>
         </View>
       </View>
     </SafeAreaView>
@@ -272,10 +278,18 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     borderTopWidth: 1,
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 14 : 8,
+    paddingTop: 6,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 4,
     width: '100%',
     alignItems: 'center',
+  },
+  footerVersionText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+    opacity: 0.55,
+    marginTop: 2,
+    letterSpacing: 0.4,
   },
   tabBarInner: {
     flexDirection: 'row',

@@ -23,6 +23,7 @@ import { PairDeviceModal } from '../components/PairDeviceModal';
 import { SyncService } from '../services/sync';
 import { PwaService } from '../services/pwa';
 import { MONTH_NAMES_RU } from '../constants/banks';
+import { APP_AUTHOR, APP_DEDICATION, APP_RELEASE_STRING } from '../constants/version';
 import { useTheme } from '../context/ThemeContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -1241,13 +1242,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={styles.dedicationBox}>
             <Heart size={20} color="#EC4899" fill="#EC4899" style={{ marginRight: 10 }} />
             <Text style={styles.dedicationText}>
-              Автор: Александр Щеголев{'\n'}
-              Сделано для своей любимой жены Светик ❤️
+              Автор: {APP_AUTHOR}{'\n'}
+              {APP_DEDICATION}
             </Text>
           </View>
 
           <Text style={[styles.versionText, { color: colors.textMuted }]}>
-            Версия 1.4.0 (Release Build) • Автор: Александр Щеголев
+            {APP_RELEASE_STRING} • Автор: {APP_AUTHOR}
           </Text>
         </View>
 
