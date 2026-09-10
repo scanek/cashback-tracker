@@ -70,19 +70,55 @@ export class SyncService {
     return DEFAULT_SYNC_SERVER_URL;
   }
 
+  public static normalizeKey(rawKey: string): string {
+    if (!rawKey) return '';
+    let k = String(rawKey).trim().toUpperCase();
+
+    // Transliterate Cyrillic lookalike characters
+    const cyrillicMap: Record<string, string> = {
+      'С': 'C', 'с': 'C',
+      'В': 'B', 'в': 'B',
+      'А': 'A', 'а': 'A',
+      'Е': 'E', 'е': 'E',
+      'К': 'K', 'к': 'K',
+      'М': 'M', 'м': 'M',
+      'Н': 'H', 'н': 'H',
+      'О': 'O', 'о': 'O',
+      'Р': 'P', 'р': 'P',
+      'Т': 'T', 'т': 'T',
+      'Х': 'X', 'х': 'X',
+      'У': 'Y', 'у': 'Y',
+    };
+
+    for (const [cyr, lat] of Object.entries(cyrillicMap)) {
+      k = k.split(cyr).join(lat);
+    }
+
+    // Extract digits if 8 or 6 digits
+    const digits = k.replace(/[^0-9]/g, '');
+    if (digits.length === 8) {
+      return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    }
+    if (digits.length === 6) {
+      return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    }
+
+    return k.replace(/^(CB|СВ)[\s\-_]*/i, '').trim();
+  }
+
   public static async getSyncKey(): Promise<string> {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.syncKey && parsed.syncKey.trim()) {
-          return parsed.syncKey.trim();
+          return this.normalizeKey(parsed.syncKey.trim());
         }
       }
     } catch {}
     
-    // Generate new unique default sync key if none exists
-    const randomKey = `CB-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    // Generate new unique 8-digit numeric sync key (no letters, no layout confusion)
+    const randomKey = `${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
     
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -159,7 +195,7 @@ export class SyncService {
       }
 
       const serverUrl = await this.getServerUrl();
-      const cleanKey = newSyncKey.trim().toUpperCase();
+      const cleanKey = this.normalizeKey(newSyncKey);
 
       const response = await fetch(`${serverUrl}/api/auth/pair`, {
         method: 'POST',

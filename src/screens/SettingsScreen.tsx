@@ -362,10 +362,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <View style={[styles.syncKeyBox, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
             <Text style={[styles.syncKeyLabel, { color: colors.textSecondary }]}>
-              Ваш синхро-код устройства:
+              Ваш цифровой синхро-код устройства:
             </Text>
             <Text style={[styles.syncKeyVal, { color: colors.accent }]}>
-              {syncKey || 'Загрузка...'}
+              {SyncService.normalizeKey(syncKey) || syncKey || 'Загрузка...'}
             </Text>
           </View>
 

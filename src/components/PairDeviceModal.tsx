@@ -232,8 +232,8 @@ export const PairDeviceModal: React.FC<PairDeviceModalProps> = ({
 
             {/* Quick Code Info */}
             <View style={[styles.codeRow, { borderColor: colors.cardBorder }]}>
-              <Text style={[styles.codeLabel, { color: colors.textSecondary }]}>Код устройства: </Text>
-              <Text style={[styles.codeValue, { color: colors.accent }]}>{currentKey}</Text>
+              <Text style={[styles.codeLabel, { color: colors.textSecondary }]}>Цифровой код устройства: </Text>
+              <Text style={[styles.codeValue, { color: colors.accent }]}>{SyncService.normalizeKey(currentKey) || currentKey}</Text>
               <TouchableOpacity onPress={handleCopyKey} style={styles.miniCopy} activeOpacity={0.7}>
                 {copiedKey ? <Check size={13} color="#10B981" /> : <Copy size={13} color={colors.textSecondary} />}
               </TouchableOpacity>
@@ -265,10 +265,17 @@ export const PairDeviceModal: React.FC<PairDeviceModalProps> = ({
                         borderColor: colors.inputBorder,
                       },
                     ]}
-                    placeholder="CB-XXXX-XXXX или ссылка"
+                    placeholder="2688-5999 (или ссылка)"
                     placeholderTextColor={colors.textMuted}
                     value={inputKey}
-                    onChangeText={setInputKey}
+                    onChangeText={(val) => {
+                      // If user pastes a link, keep the link; otherwise transliterate
+                      if (val.includes('http') || val.includes('pair=')) {
+                        setInputKey(val);
+                      } else {
+                        setInputKey(SyncService.normalizeKey(val) || val);
+                      }
+                    }}
                     autoCapitalize="characters"
                     autoCorrect={false}
                   />

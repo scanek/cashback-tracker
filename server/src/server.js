@@ -66,16 +66,62 @@ function verifyPassword(password, stored) {
   return check === hash;
 }
 
+function normalizeSyncKey(rawKey) {
+  if (!rawKey) return '';
+  let k = String(rawKey).trim().toUpperCase();
+
+  // Transliterate Cyrillic lookalike characters
+  const cyrillicMap = {
+    'С': 'C', 'с': 'C',
+    'В': 'B', 'в': 'B',
+    'А': 'A', 'а': 'A',
+    'Е': 'E', 'е': 'E',
+    'К': 'K', 'к': 'K',
+    'М': 'M', 'м': 'M',
+    'Н': 'H', 'н': 'H',
+    'О': 'O', 'о': 'O',
+    'Р': 'P', 'р': 'P',
+    'Т': 'T', 'т': 'T',
+    'Х': 'X', 'х': 'X',
+    'У': 'Y', 'у': 'Y',
+  };
+
+  for (const [cyr, lat] of Object.entries(cyrillicMap)) {
+    k = k.split(cyr).join(lat);
+  }
+
+  // Extract digits if 8 or 6 digits
+  const digits = k.replace(/[^0-9]/g, '');
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  if (digits.length === 6) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return k.replace(/^(CB|СВ)[\s\-_]*/i, '').trim();
+}
+
 function getOrCreateUser(syncKey) {
-  const cleanKey = (syncKey || '').trim().toUpperCase();
-  const userId = db.syncKeyToUserId[cleanKey];
+  const normKey = normalizeSyncKey(syncKey);
+  const rawKey = (syncKey || '').trim().toUpperCase();
+
+  // Try looking up by normalized key, legacy CB- prefix, or raw key
+  let userId =
+    db.syncKeyToUserId[normKey] ||
+    db.syncKeyToUserId[`CB-${normKey}`] ||
+    db.syncKeyToUserId[rawKey];
+
   if (userId && db.users[userId]) {
+    // Map all aliases to this userId
+    db.syncKeyToUserId[normKey] = userId;
+    db.syncKeyToUserId[`CB-${normKey}`] = userId;
     return db.users[userId];
   }
 
   const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  const keyToUse = cleanKey || `CB-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
-  
+  const keyToUse = normKey || `${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
   const user = {
     id: newId,
     syncKey: keyToUse,
@@ -85,6 +131,7 @@ function getOrCreateUser(syncKey) {
 
   db.users[newId] = user;
   db.syncKeyToUserId[keyToUse] = newId;
+  db.syncKeyToUserId[`CB-${keyToUse}`] = newId;
   if (!db.banks[newId]) db.banks[newId] = [];
   if (!db.cashbacks[newId]) db.cashbacks[newId] = [];
   if (!db.settings[newId]) db.settings[newId] = {};
