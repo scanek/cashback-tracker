@@ -17,6 +17,17 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
 }) => {
   const { colors } = useTheme();
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerYear, setPickerYear] = useState<number>(currentYear);
+
+  const realNow = new Date();
+  const realCurrentMonth = realNow.getMonth();
+  const realCurrentYear = realNow.getFullYear();
+  const isCurrentMonthNow = currentMonth === realCurrentMonth && currentYear === realCurrentYear;
+
+  const handleOpenPicker = () => {
+    setPickerYear(currentYear);
+    setPickerVisible(true);
+  };
 
   const handlePrev = () => {
     if (currentMonth === 0) {
@@ -34,8 +45,13 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
     }
   };
 
+  const handleGoToToday = () => {
+    onSelectMonth(realCurrentMonth, realCurrentYear);
+    setPickerVisible(false);
+  };
+
   const handleSelectFromPicker = (monthIndex: number) => {
-    onSelectMonth(monthIndex, currentYear);
+    onSelectMonth(monthIndex, pickerYear);
     setPickerVisible(false);
   };
 
@@ -61,23 +77,38 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
           <ChevronLeft size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.currentMonthBadge,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.cardBorder,
-            },
-          ]}
-          onPress={() => setPickerVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Calendar size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
-          <Text style={[styles.monthText, { color: colors.textPrimary }]}>
-            {MONTH_NAMES_RU[currentMonth]}{' '}
-            <Text style={[styles.yearText, { color: colors.textSecondary }]}>{currentYear}</Text>
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.centerWrap}>
+          <TouchableOpacity
+            style={[
+              styles.currentMonthBadge,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
+              },
+            ]}
+            onPress={handleOpenPicker}
+            activeOpacity={0.7}
+          >
+            <Calendar size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
+            <Text style={[styles.monthText, { color: colors.textPrimary }]}>
+              {MONTH_NAMES_RU[currentMonth]}{' '}
+              <Text style={[styles.yearText, { color: colors.textSecondary }]}>{currentYear}</Text>
+            </Text>
+          </TouchableOpacity>
+
+          {!isCurrentMonthNow && (
+            <TouchableOpacity
+              style={[
+                styles.todayBtn,
+                { backgroundColor: 'rgba(56, 189, 248, 0.12)', borderColor: colors.accentBlue },
+              ]}
+              onPress={handleGoToToday}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.todayBtnText, { color: colors.accentBlue }]}>Сегодня</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <TouchableOpacity
           style={[
@@ -91,7 +122,7 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Quick Month Picker Modal */}
+      {/* Quick Month & Year Picker Modal */}
       <Modal
         visible={pickerVisible}
         transparent
@@ -108,7 +139,7 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
           >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                Выберите месяц ({currentYear})
+                Выберите период
               </Text>
               <TouchableOpacity
                 onPress={() => setPickerVisible(false)}
@@ -119,15 +150,41 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
               </TouchableOpacity>
             </View>
 
+            {/* Year Selector Row in Modal */}
+            <View style={[styles.yearSelectorRow, { borderColor: colors.cardBorder }]}>
+              <TouchableOpacity
+                style={[styles.yearNavBtn, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+                onPress={() => setPickerYear((y) => y - 1)}
+                activeOpacity={0.7}
+              >
+                <ChevronLeft size={16} color={colors.textPrimary} />
+              </TouchableOpacity>
+
+              <Text style={[styles.modalYearText, { color: colors.textPrimary }]}>
+                {pickerYear} год
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.yearNavBtn, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+                onPress={() => setPickerYear((y) => y + 1)}
+                activeOpacity={0.7}
+              >
+                <ChevronRight size={16} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.monthsGrid}>
               {MONTH_NAMES_RU.map((monthName, index) => {
-                const isSelected = index === currentMonth;
+                const isSelected = index === currentMonth && pickerYear === currentYear;
+                const isRealCurrent = index === realCurrentMonth && pickerYear === realCurrentYear;
+
                 return (
                   <TouchableOpacity
                     key={monthName}
                     style={[
                       styles.gridItem,
                       { backgroundColor: colors.background, borderColor: colors.cardBorder },
+                      isRealCurrent && { borderColor: colors.accentBlue },
                       isSelected && {
                         backgroundColor: colors.accentBlue,
                         borderColor: colors.accentBlue,
@@ -139,7 +196,7 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
                     <Text
                       style={[
                         styles.gridItemText,
-                        { color: colors.textPrimary },
+                        { color: isRealCurrent ? colors.accentBlue : colors.textPrimary },
                         isSelected && styles.gridItemTextSelected,
                       ]}
                     >
@@ -149,6 +206,18 @@ export const MonthSelector: React.FC<MonthSelectorProps> = ({
                 );
               })}
             </View>
+
+            {/* Jump to Today Button */}
+            <TouchableOpacity
+              style={[styles.modalTodayBtn, { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder }]}
+              onPress={handleGoToToday}
+              activeOpacity={0.7}
+            >
+              <Calendar size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={[styles.modalTodayBtnText, { color: colors.textPrimary }]}>
+                Перейти к текущему месяцу ({MONTH_NAMES_RU[realCurrentMonth]} {realCurrentYear})
+              </Text>
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
@@ -167,6 +236,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  centerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   navButton: {
     width: 32,
     height: 32,
@@ -182,6 +256,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
+  },
+  todayBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  todayBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   monthText: {
     fontSize: 15,
@@ -214,7 +298,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   modalTitle: {
     fontSize: 16,
@@ -222,6 +306,28 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: {
     padding: 4,
+  },
+  yearSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  yearNavBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  modalYearText: {
+    fontSize: 15,
+    fontWeight: '800',
   },
   monthsGrid: {
     flexDirection: 'row',
@@ -243,6 +349,19 @@ const styles = StyleSheet.create({
   },
   gridItemTextSelected: {
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  modalTodayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  modalTodayBtnText: {
+    fontSize: 12,
     fontWeight: '700',
   },
 });

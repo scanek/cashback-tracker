@@ -17,7 +17,8 @@ import { BankCard } from '../components/BankCard';
 import { AddCashbackModal } from '../components/AddCashbackModal';
 import { PairDeviceModal } from '../components/PairDeviceModal';
 import { InstallPwaBanner } from '../components/InstallPwaBanner';
-import { confirmDialog } from '../utils/alert';
+import { confirmDialog, showCustomAlert } from '../utils/alert';
+import { MONTH_NAMES_RU } from '../constants/banks';
 import { useTheme } from '../context/ThemeContext';
 import {
   Percent,
@@ -27,6 +28,8 @@ import {
   User,
   Heart,
   Users,
+  RotateCcw,
+  Copy,
 } from 'lucide-react-native';
 
 interface DashboardScreenProps {
@@ -103,6 +106,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       async () => {
         await StorageService.deleteMonthlyCashback(bankId, currentMonth, currentYear, isShared);
         await loadData();
+      }
+    );
+  };
+
+  const handleCopyFromPreviousMonth = () => {
+    confirmDialog(
+      'Скопировать кэшбэк',
+      `Скопировать категории ваших банков из прошлого месяца в ${MONTH_NAMES_RU[currentMonth]} ${currentYear}?`,
+      async () => {
+        const res = await StorageService.copyCashbacksFromPreviousMonth(currentMonth, currentYear);
+        await loadData();
+        showCustomAlert(res.copiedCount > 0 ? 'Успех' : 'Информация', res.message);
       }
     );
   };
@@ -260,6 +275,36 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentBlue} />
         }
       >
+        {/* Quick Copy from Previous Month Banner if 0 cards in this month */}
+        {myCashbacksCount === 0 && ownerFilter === 'my' && (
+          <View
+            style={[
+              styles.copyBannerCard,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
+            <View style={[styles.copyBannerIcon, { backgroundColor: 'rgba(56, 189, 248, 0.12)' }]}>
+              <RotateCcw size={20} color={colors.accentBlue} />
+            </View>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={[styles.copyBannerTitle, { color: colors.textPrimary }]}>
+                {MONTH_NAMES_RU[currentMonth]} {currentYear} пока не заполнен
+              </Text>
+              <Text style={[styles.copyBannerSub, { color: colors.textSecondary }]}>
+                Скопировать категории ваших банков из прошлого месяца в 1 клик?
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.copyBannerBtn, { backgroundColor: colors.accent }]}
+              onPress={handleCopyFromPreviousMonth}
+              activeOpacity={0.8}
+            >
+              <Copy size={13} color="#0F172A" style={{ marginRight: 4 }} />
+              <Text style={styles.copyBannerBtnText}>Скопировать</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Compact 1-line Summary */}
         {displayedCashbacks.length > 0 && (
           <View style={styles.summaryContainer}>
@@ -282,6 +327,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Text style={{ color: colors.accent, fontWeight: '800' }}>{maxPercent}%</Text>
               </Text>
             </View>
+
+            {ownerFilter === 'my' && (
+              <TouchableOpacity
+                style={[
+                  styles.summaryCopyBtn,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                ]}
+                onPress={handleCopyFromPreviousMonth}
+                activeOpacity={0.7}
+              >
+                <RotateCcw size={11} color={colors.accentBlue} style={{ marginRight: 4 }} />
+                <Text style={[styles.summaryCopyBtnText, { color: colors.accentBlue }]}>
+                  Из прошлого месяца
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -447,9 +508,48 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  copyBannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  copyBannerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  copyBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  copyBannerSub: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  copyBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  copyBannerBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
   summaryContainer: {
     marginTop: 8,
     marginBottom: 4,
+    alignItems: 'center',
   },
   summaryBadge: {
     flexDirection: 'row',
@@ -463,6 +563,20 @@ const styles = StyleSheet.create({
   summaryText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  summaryCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  summaryCopyBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   bankList: {
     marginTop: 4,

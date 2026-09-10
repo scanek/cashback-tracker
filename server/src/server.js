@@ -140,9 +140,10 @@ function getOrCreateUser(syncKey) {
 }
 
 // System prompt for Gemini Vision OCR
-function getVisionSystemPrompt(currentYear) {
+function getVisionSystemPrompt(currentYear, currentMonth = new Date().getMonth()) {
   return `Ты — интеллектуальный ассистент для распознавания категорий кэшбэка со скриншотов банковских приложений РФ.
-Твоя задача — внимательно определить банк, месяц (${new Date().getMonth()}), год (${currentYear}) и извлечь список категорий кэшбэка с их процентами.
+Твоя задача — внимательно определить банк, месяц (0=Янв, ..., 11=Дек), год (${currentYear}) и извлечь список категорий кэшбэка с их процентами.
+Если в тексте скриншота прямо указан месяц (например "на октябрь", "сентябрь"), используй его номер (0-11). Если месяц не указан явно, используй ${currentMonth}.
 
 Банки РФ и их bankId:
 - СберБанк (СберСпасибо, зеленый стиль) -> bankName: "СберБанк", bankId: "sber"
@@ -159,7 +160,7 @@ function getVisionSystemPrompt(currentYear) {
 {
   "bankName": "Название определенного банка",
   "bankId": "sber | alfa | tbank | vtb | ozon | yandex | gpb | raiffeisen | sovcom",
-  "month": ${new Date().getMonth()},
+  "month": ${currentMonth},
   "year": ${currentYear},
   "items": [
     { "category": "Категория", "percent": 5, "note": "примечание если есть" }
@@ -168,7 +169,7 @@ function getVisionSystemPrompt(currentYear) {
 }
 
 // Helper to execute OCR against Google Gemini API with dynamic vision model discovery
-async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
+async function executeGeminiOcr(apiKey, cleanBase64, currentYear, currentMonth) {
   // 1. Discover models available for this key
   let candidateModels = [
     'gemini-2.0-flash',
@@ -234,7 +235,7 @@ async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
     contents: [
       {
         parts: [
-          { text: getVisionSystemPrompt(currentYear) },
+          { text: getVisionSystemPrompt(currentYear, currentMonth) },
           {
             inlineData: {
               mimeType: 'image/jpeg',
@@ -572,21 +573,27 @@ const server = http.createServer(async (req, res) => {
 
       // 8. Vision OCR Endpoint
       if (req.method === 'POST' && pathname === '/api/scan/vision') {
-        const { base64Image, apiKey } = parsedBody;
+        const { base64Image, apiKey, targetMonth, targetYear } = parsedBody;
         if (!base64Image) {
           return sendJson(400, { success: false, error: 'base64Image is required' });
         }
 
-        const DEFAULT_GEMINI_KEY = 'AQ.Ab8RN6KwvfUPXsMTFOkNICNX0tZo4FkhpI3h_PDtmkXKYGz9Ww';
-        const cleanKey = (apiKey || process.env.GEMINI_API_KEY || DEFAULT_GEMINI_KEY).trim();
-        const currentYear = new Date().getFullYear();
+        const cleanKey = (apiKey || process.env.GEMINI_API_KEY || '').trim();
+        if (!cleanKey) {
+          return sendJson(400, {
+            success: false,
+            error: 'API ключ Gemini не настроен. Пожалуйста, укажите его в разделе «Настройки».',
+          });
+        }
+        const currentYear = targetYear || new Date().getFullYear();
+        const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
         const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
 
         console.log(`📸 [OCR] Получен запрос на распознавание скриншота (длина base64: ${cleanBase64.length})`);
         console.log(`🔑 [OCR] Используем ключ: ${cleanKey.slice(0, 10)}...`);
 
         try {
-          const result = await executeGeminiOcr(cleanKey, cleanBase64, currentYear);
+          const result = await executeGeminiOcr(cleanKey, cleanBase64, currentYear, currentMonth);
           console.log(`🎉 [OCR] УСПЕХ! Банк: ${result.scanResult.bankName} (id: ${result.scanResult.bankId}), категорий: ${result.scanResult.items.length}`);
           return sendJson(200, {
             success: true,

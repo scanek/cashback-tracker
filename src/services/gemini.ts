@@ -57,24 +57,30 @@ export function resolveBankId(bankName?: string, bankIdHint?: string): { id: str
   return { id: 'sber', name: bankName || 'СберБанк' };
 }
 
-const SYSTEM_PROMPT = `Ты — эксперт по распознаванию кэшбэка со скриншотов мобильных приложений банков РФ.
+function getSystemPrompt(targetMonth?: number, targetYear?: number): string {
+  const now = new Date();
+  const month = targetMonth !== undefined ? targetMonth : now.getMonth();
+  const year = targetYear !== undefined ? targetYear : now.getFullYear();
+
+  return `Ты — эксперт по распознаванию кэшбэка со скриншотов мобильных приложений банков РФ.
 Внимательно посмотри на скриншот и определи:
 1. Какой банк отображен на скриншоте (bankName и bankId: 'sber' | 'alfa' | 'tbank' | 'vtb' | 'ozon' | 'yandex' | 'gpb' | 'raiffeisen' | 'sovcom').
-2. Месяц (0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год (${new Date().getFullYear()}).
+2. Месяц (0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год (${year}). Если в тексте скриншота указан месяц (например, "на октябрь", "сентябрь"), используй его номер (0-11). Если нет явного указания, по умолчанию считай ${month} (месяц) и ${year} (год).
 3. Список всех выбранных или доступных категорий кэшбэка с точным процентом (percent: число) и примечаниями (note).
 
 Верни СТРОГО чистый JSON:
 {
   "bankName": "Альфа-Банк",
   "bankId": "alfa",
-  "month": ${new Date().getMonth()},
-  "year": ${new Date().getFullYear()},
+  "month": ${month},
+  "year": ${year},
   "items": [
     { "category": "Продукты", "percent": 5, "note": "до 5000 ₽" },
     { "category": "АЗС", "percent": 5 },
     { "category": "1% на всё", "percent": 1 }
   ]
 }`;
+}
 
 export class GeminiVisionService {
   private static cachedWorkingModel: string = 'gemini-2.0-flash';
@@ -170,9 +176,13 @@ export class GeminiVisionService {
     base64Image: string,
     mimeType: string = 'image/jpeg',
     apiKey?: string,
-    preferredModel?: string
+    preferredModel?: string,
+    targetMonth?: number,
+    targetYear?: number
   ): Promise<ScanResult> {
     const cleanKey = this.sanitizeApiKey(apiKey || '');
+    const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
+    const currentYear = targetYear || new Date().getFullYear();
 
     // 1. Try Server Proxy first (/api/scan/vision) — Bypasses client-side Geo-blocking & CORS
     try {
@@ -187,6 +197,8 @@ export class GeminiVisionService {
         body: JSON.stringify({
           base64Image,
           apiKey: cleanKey,
+          targetMonth: currentMonth,
+          targetYear: currentYear,
         }),
       });
 
@@ -199,8 +211,8 @@ export class GeminiVisionService {
           return {
             bankName: resolved.name,
             bankId: resolved.id,
-            month: data.scanResult.month ?? new Date().getMonth(),
-            year: data.scanResult.year ?? new Date().getFullYear(),
+            month: data.scanResult.month ?? currentMonth,
+            year: data.scanResult.year ?? currentYear,
             items: data.scanResult.items || [],
             confidence: 0.95,
             rawText: JSON.stringify(data.scanResult),
@@ -218,7 +230,9 @@ export class GeminiVisionService {
           preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash',
           base64Image,
           mimeType,
-          cleanKey
+          cleanKey,
+          currentMonth,
+          currentYear
         );
         if (directResult) return directResult;
       } catch (directErr: any) {
@@ -228,7 +242,9 @@ export class GeminiVisionService {
             'gemini-1.5-flash',
             base64Image,
             mimeType,
-            cleanKey
+            cleanKey,
+            currentMonth,
+            currentYear
           );
           if (fallbackResult) return fallbackResult;
         } catch (fbErr) {
@@ -245,14 +261,17 @@ export class GeminiVisionService {
     model: string,
     base64Image: string,
     mimeType: string,
-    apiKey: string
+    apiKey: string,
+    targetMonth?: number,
+    targetYear?: number
   ): Promise<ScanResult> {
     const cleanModel = model.replace(/^models\//, '');
     const cleanBase64 = base64Image
       .replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/i, '')
       .replace(/[\r\n\s]/g, '');
     const cleanMime = mimeType.replace(/;.*$/, '').trim() || 'image/jpeg';
-    const currentYear = new Date().getFullYear();
+    const currentYear = targetYear || new Date().getFullYear();
+    const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
@@ -271,7 +290,7 @@ export class GeminiVisionService {
             {
               parts: [
                 {
-                  text: SYSTEM_PROMPT,
+                  text: getSystemPrompt(currentMonth, currentYear),
                 },
                 {
                   inlineData: {
@@ -289,8 +308,6 @@ export class GeminiVisionService {
           },
         }),
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -314,15 +331,14 @@ export class GeminiVisionService {
       return {
         bankName: resolved.name,
         bankId: resolved.id,
-        month: typeof parsed.month === 'number' ? parsed.month : new Date().getMonth(),
+        month: typeof parsed.month === 'number' ? parsed.month : currentMonth,
         year: typeof parsed.year === 'number' ? parsed.year : currentYear,
         items,
         confidence: 0.95,
-        rawText,
+        rawText: cleaned,
       };
-    } catch (e: any) {
+    } finally {
       clearTimeout(timeoutId);
-      throw e;
     }
   }
 

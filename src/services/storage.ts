@@ -217,6 +217,79 @@ export class StorageService {
     );
   }
 
+  static async copyCashbacksFromPreviousMonth(
+    targetMonth: number,
+    targetYear: number
+  ): Promise<{ copiedCount: number; message: string }> {
+    const prevMonth = targetMonth === 0 ? 11 : targetMonth - 1;
+    const prevYear = targetMonth === 0 ? targetYear - 1 : targetYear;
+
+    const previousCashbacks = await this.getCashbacksForMonth(prevMonth, prevYear);
+    if (!previousCashbacks || previousCashbacks.length === 0) {
+      return { copiedCount: 0, message: 'В прошлом месяце нет сохраненных кэшбэков для копирования' };
+    }
+
+    const currentCashbacks = await this.getCashbacksForMonth(targetMonth, targetYear);
+    const existingBankKeys = new Set(
+      currentCashbacks.map((c) => `${c.bankId}_${Boolean(c.isShared)}`)
+    );
+
+    const activeBanks = await this.getBanks();
+    const activeBankIds = new Set(activeBanks.filter((b) => b.isActive).map((b) => b.id));
+
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
+    const all: MonthlyCashback[] = raw ? JSON.parse(raw) : [];
+
+    let copiedCount = 0;
+    const newItems: MonthlyCashback[] = [];
+
+    for (const prevCb of previousCashbacks) {
+      if (prevCb.deletedAt) continue;
+      if (!activeBankIds.has(prevCb.bankId)) continue;
+
+      const key = `${prevCb.bankId}_${Boolean(prevCb.isShared)}`;
+      if (existingBankKeys.has(key)) continue;
+
+      if (!prevCb.items || prevCb.items.length === 0) continue;
+
+      const newCb: MonthlyCashback = {
+        id: `cb_${prevCb.bankId}_${targetYear}_${targetMonth}_${prevCb.isShared ? 'shared' : 'my'}_${Date.now()}_${copiedCount}`,
+        bankId: prevCb.bankId,
+        month: targetMonth,
+        year: targetYear,
+        isShared: Boolean(prevCb.isShared),
+        sharedByName: prevCb.sharedByName,
+        updatedAt: new Date().toISOString(),
+        deletedAt: null,
+        items: prevCb.items.map((it, idx) => ({
+          ...it,
+          id: `item-${targetMonth}-${idx}-${Date.now()}`,
+        })),
+      };
+
+      newItems.push(newCb);
+      copiedCount++;
+    }
+
+    if (copiedCount > 0) {
+      const updatedAll = [...all, ...newItems];
+      await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(updatedAll));
+      try {
+        const { WidgetService } = require('./widget');
+        WidgetService.updateWidget();
+      } catch {}
+      SyncService.performSync().catch(() => {});
+    }
+
+    return {
+      copiedCount,
+      message:
+        copiedCount > 0
+          ? `Скопировано ${copiedCount} банков из прошлого месяца!`
+          : 'Все ваши банки за этот месяц уже заполнены.',
+    };
+  }
+
   static async saveMonthlyCashback(cashback: MonthlyCashback): Promise<MonthlyCashback[]> {
     const raw = await AsyncStorage.getItem(STORAGE_KEYS.CASHBACKS);
     const all: MonthlyCashback[] = raw ? JSON.parse(raw) : [];
