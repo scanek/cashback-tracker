@@ -21,6 +21,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   advisorViewMode: 'compact',
   partnerName: 'Партнер',
   autoSyncEnabled: true,
+  isPinEnabled: false,
+  pinCodeHash: '',
+  pinSalt: '',
 };
 
 const SAMPLE_CASHBACKS: MonthlyCashback[] = [

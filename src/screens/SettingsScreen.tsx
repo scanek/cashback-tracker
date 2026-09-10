@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { AppSettings, Bank, MonthlyCashback, AdvisorViewMode } from '../types';
 import { StorageService } from '../services/storage';
@@ -60,6 +61,9 @@ import {
 } from 'lucide-react-native';
 import { WidgetThemeMode } from '../widgets/CashbackWidget';
 import { WidgetService } from '../services/widget';
+import { SecurityService } from '../services/security';
+import { PinLockScreen } from './PinLockScreen';
+import { Lock, Unlock, KeyRound } from 'lucide-react-native';
 
 interface SettingsScreenProps {
   onNavigateToScan?: () => void;
@@ -88,6 +92,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [banks, setBanks] = useState<Bank[]>([]);
   const [monthCashbacks, setMonthCashbacks] = useState<MonthlyCashback[]>([]);
   const [isImportModalVisible, setIsImportModalVisible] = useState<boolean>(false);
+  const [hasPinConfigured, setHasPinConfigured] = useState<boolean>(false);
+  const [isPinSetupModalOpen, setIsPinSetupModalOpen] = useState<boolean>(false);
   const backupFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
@@ -106,11 +112,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setSyncKey(key);
     setServerUrl(sUrl);
 
+    const pinConfigured = await SecurityService.hasConfiguredPin();
+    setHasPinConfigured(pinConfigured);
+
     const allBanks = await StorageService.getBanks();
     const cbs = await StorageService.getCashbacksForMonth(activeMonth, activeYear);
     setBanks(allBanks.filter((b) => b.isActive));
     setMonthCashbacks(cbs);
   }, [activeMonth, activeYear]);
+
+  const handleRemovePin = () => {
+    confirmDialog(
+      'Отключение PIN-кода',
+      'Вы уверены, что хотите снять защиту PIN-кодом с приложения?',
+      async () => {
+        await SecurityService.removePin();
+        setHasPinConfigured(false);
+        showCustomAlert('Готово', 'PIN-код успешно удален.');
+      },
+      'Отключить'
+    );
+  };
 
   useEffect(() => {
     loadData();
@@ -960,6 +982,87 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </View>
 
+        {/* Security & PIN Lock Card */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderColor: hasPinConfigured ? colors.accentGreen : colors.cardBorder,
+            },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <Lock
+              size={18}
+              color={hasPinConfigured ? colors.accentGreen : colors.accent}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Защита PIN-кодом
+            </Text>
+          </View>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+            {hasPinConfigured
+              ? 'Приложение защищено PIN-кодом. При открытии сайта требуется ввод кода с защитой от перебора.'
+              : 'Установите 4-значный PIN-код, чтобы посторонние не могли просматривать и изменять ваши данные при открытии сайта.'}
+          </Text>
+
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+            {hasPinConfigured ? (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.operationBtn,
+                    {
+                      backgroundColor: colors.inputBackground,
+                      borderColor: colors.cardBorder,
+                      flex: 1,
+                    },
+                  ]}
+                  onPress={() => setIsPinSetupModalOpen(true)}
+                  activeOpacity={0.7}
+                >
+                  <KeyRound size={15} color={colors.textPrimary} style={{ marginRight: 6 }} />
+                  <Text style={[styles.operationBtnText, { color: colors.textPrimary }]}>
+                    Сменить PIN
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.operationBtn,
+                    {
+                      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                      borderColor: colors.accentRed,
+                      flex: 1,
+                    },
+                  ]}
+                  onPress={handleRemovePin}
+                  activeOpacity={0.7}
+                >
+                  <Unlock size={15} color={colors.accentRed} style={{ marginRight: 6 }} />
+                  <Text style={[styles.operationBtnText, { color: colors.accentRed }]}>
+                    Отключить
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.saveKeyBtn,
+                  { backgroundColor: colors.accent, width: '100%', marginTop: 4 },
+                ]}
+                onPress={() => setIsPinSetupModalOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Lock size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                <Text style={styles.saveKeyBtnText}>Включить защиту PIN-кодом</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* Notifications Card */}
         <View
           style={[
@@ -1123,6 +1226,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onClose={() => setIsPairModalVisible(false)}
         onSuccess={loadData}
       />
+
+      {/* PIN Setup Modal */}
+      <Modal
+        visible={isPinSetupModalOpen}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setIsPinSetupModalOpen(false)}
+      >
+        <PinLockScreen
+          mode="setup"
+          onSuccess={() => {
+            setIsPinSetupModalOpen(false);
+            loadData();
+            showCustomAlert('Защита активна', 'PIN-код успешно установлен!');
+          }}
+          onCancel={() => setIsPinSetupModalOpen(false)}
+        />
+      </Modal>
     </View>
   );
 };

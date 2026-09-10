@@ -244,6 +244,46 @@ async function executeGeminiOcr(apiKey, cleanBase64, currentYear) {
   throw lastError || new Error('Все доступные модели Gemini вернули ошибку при распознавании.');
 }
 
+// Rate limiter for brute-force prevention
+const rateLimitMap = new Map(); // ip -> { count, firstAttempt, blockedUntil }
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry) return { allowed: true };
+
+  if (entry.blockedUntil && entry.blockedUntil > now) {
+    const remainingSeconds = Math.ceil((entry.blockedUntil - now) / 1000);
+    return { allowed: false, remainingSeconds };
+  }
+
+  // Reset window after 15 minutes of inactivity
+  if (now - entry.firstAttempt > 15 * 60 * 1000) {
+    rateLimitMap.delete(ip);
+    return { allowed: true };
+  }
+
+  return { allowed: true };
+}
+
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip) || { count: 0, firstAttempt: now };
+  entry.count += 1;
+
+  if (entry.count >= 10) {
+    entry.blockedUntil = now + 30 * 60 * 1000; // 30 min block
+  } else if (entry.count >= 5) {
+    entry.blockedUntil = now + 15 * 60 * 1000; // 15 min block
+  }
+
+  rateLimitMap.set(ip, entry);
+}
+
+function recordSuccessAttempt(ip) {
+  rateLimitMap.delete(ip);
+}
+
 // Request Handler
 const server = http.createServer(async (req, res) => {
   // CORS Headers
@@ -254,6 +294,18 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const limitCheck = checkRateLimit(clientIp);
+
+  if (!limitCheck.allowed) {
+    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      success: false,
+      error: `Too Many Requests. IP временно заблокирован на ${limitCheck.remainingSeconds} сек. из-за частых неверных попыток.`,
+    }));
     return;
   }
 

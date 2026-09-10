@@ -66,6 +66,10 @@ export interface AppSettings {
   autoSyncEnabled?: boolean;
   lastSyncedAt?: string;
   userEmail?: string;
+  // Security & PIN Lock
+  isPinEnabled?: boolean;
+  pinCodeHash?: string; // Salted PBKDF2 or SHA256 hash of PIN
+  pinSalt?: string;
 }
 
 export interface ScanResult {

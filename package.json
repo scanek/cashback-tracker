@@ -1,6 +1,6 @@
 {
   "name": "cashback-tracker",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Мои Кэшбеки — сделано Александром Щеголевым для любимой жены Светик",
   "author": "Александр Щеголев",
   "main": "index.ts",

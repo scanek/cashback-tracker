@@ -19,6 +19,8 @@ import { StorageService } from './src/services/storage';
 import { SyncService } from './src/services/sync';
 import { PwaService } from './src/services/pwa';
 import { NotificationService } from './src/services/notifications';
+import { SecurityService } from './src/services/security';
+import { PinLockScreen } from './src/screens/PinLockScreen';
 import {
   CreditCard,
   Sparkles,
@@ -31,6 +33,8 @@ type TabType = 'dashboard' | 'advisor' | 'scan' | 'cards' | 'settings';
 
 function MainAppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [isReady, setIsReady] = useState<boolean>(false);
   const { colors, theme } = useTheme();
   const { width } = useWindowDimensions();
 
@@ -52,6 +56,11 @@ function MainAppContent() {
           }
         } catch {}
       }
+
+      // Check if PIN lock is active
+      const requiresPin = await SecurityService.isPinRequired();
+      setIsLocked(requiresPin);
+      setIsReady(true);
 
       SyncService.startAutoSync();
       PwaService.init();
@@ -89,6 +98,37 @@ function MainAppContent() {
         );
     }
   };
+
+  if (!isReady) {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}
+      >
+        <StatusBar
+          barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (isLocked) {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: colors.background }]}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
+        <StatusBar
+          barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
+        <PinLockScreen
+          mode="unlock"
+          onSuccess={() => setIsLocked(false)}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
