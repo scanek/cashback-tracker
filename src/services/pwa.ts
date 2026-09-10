@@ -7,18 +7,25 @@ export class PwaService {
   public static init() {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
-    // 1. Register Service Worker
+    // 1. Register Service Worker immediately
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      const registerSW = () => {
         navigator.serviceWorker
-          .register('/sw.js')
+          .register('/sw.js', { scope: '/' })
           .then((registration) => {
             console.log('[PWA] ServiceWorker registered with scope: ', registration.scope);
+            registration.update().catch(() => {});
           })
           .catch((err) => {
             console.warn('[PWA] ServiceWorker registration failed: ', err);
           });
-      });
+      };
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
+      }
     }
 
     // 2. Listen for BeforeInstallPrompt event (Android Chrome / Edge / Desktop)

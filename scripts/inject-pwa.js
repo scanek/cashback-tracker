@@ -15,12 +15,19 @@ if (fs.existsSync(indexPath)) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Мои Кэшбеки" />
     <link rel="apple-touch-icon" href="/assets/icon.png" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(function(reg) { console.log('[SW] Registered via inline head script, scope:', reg.scope); })
+          .catch(function(err) { console.warn('[SW] Inline registration failed:', err); });
+      }
+    </script>
   `;
 
   if (!html.includes('rel="manifest"')) {
     html = html.replace('</head>', `${pwaTags}\n</head>`);
     fs.writeFileSync(indexPath, html, 'utf-8');
-    console.log('✅ PWA tags successfully injected into dist/index.html');
+    console.log('✅ PWA tags and Service Worker successfully injected into dist/index.html');
   }
 } else {
   console.log('dist/index.html not found, skipping injection');
