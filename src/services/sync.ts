@@ -178,6 +178,27 @@ export class SyncService {
   }
 
   /**
+   * Safe fetch with timeout to prevent hanging on weak internet (Lie-Fi)
+   */
+  private static async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    timeoutMs: number = 6000
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      return res;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Pair this device with a specific sync key from another device
    */
   public static async pairWithKey(
@@ -197,11 +218,11 @@ export class SyncService {
       const serverUrl = await this.getServerUrl();
       const cleanKey = this.normalizeKey(newSyncKey);
 
-      const response = await fetch(`${serverUrl}/api/auth/pair`, {
+      const response = await this.fetchWithTimeout(`${serverUrl}/api/auth/pair`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ syncKey: cleanKey }),
-      });
+      }, 7000);
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -218,11 +239,11 @@ export class SyncService {
       await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
 
       // 1. First PULL everything from the paired device's cloud account
-      const pullRes = await fetch(`${serverUrl}/api/sync/pull`, {
+      const pullRes = await this.fetchWithTimeout(`${serverUrl}/api/sync/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ syncKey: cleanKey }),
-      });
+      }, 7000);
 
       if (pullRes.ok) {
         const pullData = await pullRes.json();
@@ -272,8 +293,8 @@ export class SyncService {
       const localCashbacks: MonthlyCashback[] = rawCashbacks ? JSON.parse(rawCashbacks) : [];
       const localSettings: Partial<AppSettings> = rawSettings ? JSON.parse(rawSettings) : {};
 
-      // 2. PUSH: Send local changes to server
-      const pushRes = await fetch(`${serverUrl}/api/sync/push`, {
+      // 2. PUSH: Send local changes to server (with 6s timeout)
+      const pushRes = await this.fetchWithTimeout(`${serverUrl}/api/sync/push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -282,21 +303,21 @@ export class SyncService {
           cashbacks: localCashbacks,
           settings: localSettings,
         }),
-      });
+      }, 6000);
 
       if (!pushRes.ok) {
         throw new Error(`Push error ${pushRes.status}`);
       }
 
-      // 3. PULL: Fetch server updates
-      const pullRes = await fetch(`${serverUrl}/api/sync/pull`, {
+      // 3. PULL: Fetch server updates (with 6s timeout)
+      const pullRes = await this.fetchWithTimeout(`${serverUrl}/api/sync/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           syncKey,
           since: lastSync,
         }),
-      });
+      }, 6000);
 
       if (!pullRes.ok) {
         throw new Error(`Pull error ${pullRes.status}`);
