@@ -52,6 +52,7 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
   const [month, setMonth] = useState<number>(new Date().getMonth());
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [items, setItems] = useState<CashbackItem[]>([]);
+  const [showImagePreview, setShowImagePreview] = useState<boolean>(false);
 
   useEffect(() => {
     if (scanResult) {
@@ -77,13 +78,13 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
             id: `item-${idx}-${Date.now()}`,
           }))
         );
+        setShowImagePreview(false);
       } else {
-        setItems([
-          { id: 'default-all', category: '1% на все покупки', percent: 1 },
-        ]);
+        setItems([]);
+        setShowImagePreview(Boolean(imageUri));
       }
     }
-  }, [scanResult, visible, banks]);
+  }, [scanResult, visible, banks, imageUri]);
 
   if (!scanResult) return null;
 
@@ -102,7 +103,7 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
       ...items,
       {
         id: Date.now().toString(),
-        category: 'Новая категория',
+        category: '',
         percent: 5,
       },
     ]);
@@ -150,6 +151,55 @@ export const ScanReviewModal: React.FC<ScanReviewModalProps> = ({
           </View>
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+            {/* Image Preview Toggle */}
+            {imageUri && (
+              <View style={{ marginBottom: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 9,
+                    paddingHorizontal: 12,
+                    borderRadius: 12,
+                    backgroundColor: colors.inputBackground,
+                    borderWidth: 1,
+                    borderColor: colors.cardBorder,
+                  }}
+                  onPress={() => setShowImagePreview(!showImagePreview)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
+                    {showImagePreview ? '📷 Скрыть скриншот' : '📷 Показать загруженный скриншот'}
+                  </Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: colors.accentBlue }}>
+                    {showImagePreview ? '▲ Свернуть' : '▼ Развернуть'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showImagePreview && (
+                  <View
+                    style={{
+                      marginTop: 8,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      borderWidth: 1,
+                      borderColor: colors.cardBorder,
+                      backgroundColor: '#0F172A',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={{ width: '100%', height: 260 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Bank Selector */}
             <View
               style={[

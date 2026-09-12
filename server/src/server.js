@@ -9,6 +9,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Attempt to load environment variables from .env if available
+try {
+  const dotenv = require('dotenv');
+  dotenv.config({ path: path.join(__dirname, '../../.env') });
+  dotenv.config({ path: path.join(__dirname, '../.env') });
+  dotenv.config();
+} catch (e) {}
+
 const PORT = process.env.PORT || 4000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
@@ -141,29 +149,37 @@ function getOrCreateUser(syncKey) {
 
 // System prompt for Gemini Vision OCR
 function getVisionSystemPrompt(currentYear, currentMonth = new Date().getMonth()) {
-  return `Ты — интеллектуальный ассистент для распознавания категорий кэшбэка со скриншотов банковских приложений РФ.
-Твоя задача — внимательно определить банк, месяц (0=Янв, ..., 11=Дек), год (${currentYear}) и извлечь список категорий кэшбэка с их процентами.
-Если в тексте скриншота прямо указан месяц (например "на октябрь", "сентябрь"), используй его номер (0-11). Если месяц не указан явно, используй ${currentMonth}.
+  return `Ты — профессиональный эксперт по распознаванию кэшбэка со скриншотов мобильных приложений банков РФ.
+Твоя задача — внимательно определить банк, месяц (0=Янв, ..., 11=Дек), год (${currentYear}) и извлечь список ВСЕХ видимых категорий кэшбэка с их процентами.
+Если в тексте скриншота прямо указан месяц (например "на октябрь", "сентябрь", "в ноябре"), используй его номер (0-11). Если месяц не указан явно, используй ${currentMonth}.
 
 Банки РФ и их bankId:
-- СберБанк (СберСпасибо, зеленый стиль) -> bankName: "СберБанк", bankId: "sber"
-- Альфа-Банк (красный стиль, буква А) -> bankName: "Альфа-Банк", bankId: "alfa"
-- Т-Банк / Тинькофф (желтый фон, буква Т) -> bankName: "Т-Банк", bankId: "tbank"
-- ВТБ (синий стиль, полоски) -> bankName: "ВТБ", bankId: "vtb"
-- Ozon Банк (синий / розовый стиль) -> bankName: "Ozon Банк", bankId: "ozon"
-- Яндекс Пэй (Яндекс, Плюс) -> bankName: "Яндекс Пэй", bankId: "yandex"
+- Т-Банк / Тинькофф (темная или светлая тема, желтый щит/логотип с буквой «Т», надписи «Кэшбэк на месяц», «Т-Банк», «Тинькофф», «T-Bank») -> bankName: "Т-Банк", bankId: "tbank"
+- СберБанк (СберСпасибо, зеленый стиль, галочка в круге, «Сбер») -> bankName: "СберБанк", bankId: "sber"
+- Альфа-Банк (красный стиль, белая буква А на красном фоне, «Кэшбэк и привилегии», «Альфа») -> bankName: "Альфа-Банк", bankId: "alfa"
+- ВТБ (синий стиль, полоски, «Мультибонус») -> bankName: "ВТБ", bankId: "vtb"
+- Ozon Банк (синий / фиолетовый / маджента, круг с буквой O, «Ozon») -> bankName: "Ozon Банк", bankId: "ozon"
+- Яндекс Пэй (желто-красно-черный стиль, буква Я в круге, «Плюс», «Яндекс») -> bankName: "Яндекс Пэй", bankId: "yandex"
 - Газпромбанк -> bankName: "Газпромбанк", bankId: "gpb"
 - Райффайзенбанк -> bankName: "Райффайзенбанк", bankId: "raiffeisen"
 - Совкомбанк (Халва) -> bankName: "Совкомбанк", bankId: "sovcom"
 
+ПРАВИЛА ИЗВЛЕЧЕНИЯ:
+1. Извлекай реальные категории, видимые на скриншоте (например: "1% На все покупки", "5% Супермаркеты", "7% Аптеки", "10% Рестораны", "АЗС", "Такси", "Цветы" и т.д.).
+2. В поле percent должно быть ТОЛЬКО число (например: 5, а не "5%").
+3. В поле note укажи любые лимиты (например: "до 3000 ₽", "с подпиской Pro").
+4. СТРОЖАЙШЕ ЗАПРЕЩЕНО выдумывать категории! Если на скриншоте категорий нет или он не читается, верни пустой список items: [].
+
 Верни СТРОГО чистый JSON:
 {
-  "bankName": "Название определенного банка",
-  "bankId": "sber | alfa | tbank | vtb | ozon | yandex | gpb | raiffeisen | sovcom",
+  "bankName": "Т-Банк",
+  "bankId": "tbank",
   "month": ${currentMonth},
   "year": ${currentYear},
   "items": [
-    { "category": "Категория", "percent": 5, "note": "примечание если есть" }
+    { "category": "Супермаркеты", "percent": 5, "note": "до 3000 ₽" },
+    { "category": "Рестораны и кафе", "percent": 5 },
+    { "category": "1% на все покупки", "percent": 1 }
   ]
 }`;
 }
@@ -582,7 +598,7 @@ const server = http.createServer(async (req, res) => {
         if (!cleanKey) {
           return sendJson(400, {
             success: false,
-            error: 'API ключ Gemini не настроен. Пожалуйста, укажите его в разделе «Настройки».',
+            error: 'API-ключ Google Gemini не настроен. Пожалуйста, укажите бесплатный ключ в разделе «Настройки» приложения или в GEMINI_API_KEY на сервере.',
           });
         }
         const currentYear = targetYear || new Date().getFullYear();

@@ -74,6 +74,7 @@ export const ScanScreen: React.FC = () => {
   }, []);
 
   const processImageBase64 = async (base64: string, uri: string, mimeType?: string) => {
+    const now = new Date();
     try {
       setLoading(true);
       setStatusMessage('Распознаем категории кэшбэка через Gemini Vision...');
@@ -85,7 +86,9 @@ export const ScanScreen: React.FC = () => {
         base64,
         detectedMime,
         settings.geminiApiKey,
-        settings.geminiModel
+        settings.geminiModel,
+        now.getMonth(),
+        now.getFullYear()
       );
 
       setSelectedImageUri(uri);
@@ -93,13 +96,29 @@ export const ScanScreen: React.FC = () => {
       setReviewModalVisible(true);
     } catch (error: any) {
       console.error('Scan error', error);
+      const isMissingKey =
+        error.message?.includes('API-ключ') ||
+        error.message?.includes('API') ||
+        error.message?.includes('ключ');
+
       showCustomAlert(
-        'Внимание',
-        error.message || 'Для автоматического распознавания укажите ваш Gemini API ключ в Настройках. Открываем редактор категорий!'
+        isMissingKey ? 'Требуется API-ключ Gemini' : 'Не удалось распознать',
+        error.message ||
+          'Для автоматического распознавания категорий укажите бесплатный ключ Gemini в Настройках. Открываем редактор для ручного ввода.'
       );
-      // Open editor with fallback result so user never gets stranded
+
+      // Open editor with clean empty categories list so user can enter real cashback
+      const fallbackResult: ScanResult = {
+        bankName: 'Т-Банк',
+        bankId: 'tbank',
+        month: now.getMonth(),
+        year: now.getFullYear(),
+        items: [],
+        confidence: 0,
+        rawText: 'Ручной ввод категорий',
+      };
       setSelectedImageUri(uri);
-      setScanResult(GeminiVisionService.mockSmartRecognition());
+      setScanResult(fallbackResult);
       setReviewModalVisible(true);
     } finally {
       setLoading(false);
@@ -211,12 +230,12 @@ export const ScanScreen: React.FC = () => {
               <View
                 style={[
                   styles.webPasteHintCard,
-                  { backgroundColor: 'rgba(234, 179, 8, 0.1)', borderColor: '#EAB308', marginBottom: 12 },
+                  { backgroundColor: 'rgba(234, 179, 8, 0.12)', borderColor: '#EAB308', marginBottom: 12 },
                 ]}
               >
                 <Key size={18} color="#EAB308" style={{ marginRight: 8, marginTop: 2 }} />
                 <Text style={[styles.webPasteHintText, { color: colors.textPrimary }]}>
-                  🔑 <Text style={{ fontWeight: '700' }}>AI-распознавание:</Text> Чтобы сканер читал точный текст и проценты любого банка, добавьте бесплатный ключ Gemini во вкладке «Настройки». Сейчас включен авто-детектор банков.
+                  🔑 <Text style={{ fontWeight: '700' }}>AI-сканер:</Text> Для автоматического извлечения категорий и процентов со скриншота укажите бесплатный ключ Google Gemini в «Настройках» (получить можно бесплатно за 1 мин на aistudio.google.com). Без ключа доступен ручной ввод категорий.
                 </Text>
               </View>
             )}

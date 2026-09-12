@@ -38,70 +38,34 @@ export class ImageBankDetector {
     const gAvg = samples > 0 ? gSum / samples : 128;
     const bAvg = samples > 0 ? bSum / samples : 128;
 
-    // Bank presets with realistic standard categories
+    // Bank presets (empty categories list - never insert fake stubs)
     let detectedBankId = 'tbank';
     let bankName = 'Т-Банк';
-    let defaultCategories = [
-      { category: 'Супермаркеты', percent: 5, note: 'до 3000 ₽' },
-      { category: 'Рестораны и кафе', percent: 5 },
-      { category: 'Аптеки', percent: 5 },
-      { category: '1% на все покупки', percent: 1 },
-    ];
 
     // Detect Alfa (Strong Red)
     if (rAvg > gAvg * 1.15 && rAvg > bAvg * 1.15) {
       detectedBankId = 'alfa';
       bankName = 'Альфа-Банк';
-      defaultCategories = [
-        { category: 'Продукты', percent: 5, note: 'до 5000 ₽' },
-        { category: 'АЗС / Топливо', percent: 5 },
-        { category: 'Кафе и рестораны', percent: 5 },
-        { category: '1% на все покупки', percent: 1 },
-      ];
     }
     // Detect Sber (Strong Green)
     else if (gAvg > rAvg * 1.08 && gAvg > bAvg * 1.05) {
       detectedBankId = 'sber';
       bankName = 'СберБанк';
-      defaultCategories = [
-        { category: 'Кафе и рестораны', percent: 5 },
-        { category: 'Такси', percent: 5 },
-        { category: 'Аптеки', percent: 5 },
-        { category: '0.5% на все покупки', percent: 0.5 },
-      ];
     }
     // Detect VTB (Strong Blue)
     else if (bAvg > rAvg * 1.12 && bAvg > gAvg * 1.05) {
       detectedBankId = 'vtb';
       bankName = 'ВТБ';
-      defaultCategories = [
-        { category: 'Супермаркеты', percent: 5 },
-        { category: 'Транспорт и такси', percent: 5 },
-        { category: 'Рестораны', percent: 5 },
-        { category: '1.5% на все покупки', percent: 1.5 },
-      ];
     }
     // Detect Ozon (Blue/Magenta balance)
     else if (bAvg > gAvg * 1.1 && rAvg > gAvg * 1.05) {
       detectedBankId = 'ozon';
       bankName = 'Ozon Банк';
-      defaultCategories = [
-        { category: 'Супермаркеты вне Ozon', percent: 5 },
-        { category: 'Одежда и обувь', percent: 5 },
-        { category: 'АЗС', percent: 5 },
-        { category: '1% на все покупки', percent: 1 },
-      ];
     }
     // Detect Yandex (Yellow-Red mix)
     else if (rAvg > bAvg * 1.2 && gAvg > bAvg * 1.1) {
       detectedBankId = 'yandex';
       bankName = 'Яндекс Пэй';
-      defaultCategories = [
-        { category: 'Яндекс Go / Такси', percent: 10 },
-        { category: 'Супермаркеты', percent: 5 },
-        { category: 'Рестораны и доставка', percent: 5 },
-        { category: '1% баллами Плюса', percent: 1 },
-      ];
     }
 
     return {
@@ -109,9 +73,9 @@ export class ImageBankDetector {
       bankId: detectedBankId,
       month: currentMonth,
       year: currentYear,
-      items: defaultCategories,
-      confidence: 0.85,
-      rawText: `Смарт-детектор определил банк: ${bankName}`,
+      items: [], // Never invent fake categories!
+      confidence: 0.5,
+      rawText: `Банк определен по цветам: ${bankName}. Категории добавьте вручную.`,
     };
   }
 }

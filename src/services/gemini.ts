@@ -62,22 +62,36 @@ function getSystemPrompt(targetMonth?: number, targetYear?: number): string {
   const month = targetMonth !== undefined ? targetMonth : now.getMonth();
   const year = targetYear !== undefined ? targetYear : now.getFullYear();
 
-  return `Ты — эксперт по распознаванию кэшбэка со скриншотов мобильных приложений банков РФ.
+  return `Ты — профессиональный эксперт по распознаванию кэшбэка со скриншотов мобильных банков РФ.
 Внимательно посмотри на скриншот и определи:
-1. Какой банк отображен на скриншоте (bankName и bankId: 'sber' | 'alfa' | 'tbank' | 'vtb' | 'ozon' | 'yandex' | 'gpb' | 'raiffeisen' | 'sovcom').
-2. Месяц (0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год (${year}). Если в тексте скриншота указан месяц (например, "на октябрь", "сентябрь"), используй его номер (0-11). Если нет явного указания, по умолчанию считай ${month} (месяц) и ${year} (год).
-3. Список всех выбранных или доступных категорий кэшбэка с точным процентом (percent: число) и примечаниями (note).
+1. Банк (bankName и bankId):
+- Т-Банк / Тинькофф (темная или светлая тема, желтый щит/логотип с буквой «Т», надписи «Кэшбэк на месяц», «Т-Банк», «Тинькофф», «T-Bank») -> bankName: "Т-Банк", bankId: "tbank"
+- СберБанк (зеленый стиль, галочка в круге, «СберСпасибо», «Сбер») -> bankName: "СберБанк", bankId: "sber"
+- Альфа-Банк (красный стиль, белая буква А, «Кэшбэк и привилегии», «Альфа») -> bankName: "Альфа-Банк", bankId: "alfa"
+- ВТБ (синий стиль, три полоски, «Мультибонус») -> bankName: "ВТБ", bankId: "vtb"
+- Ozon Банк (синий / фиолетовый / маджента, круг с буквой O, «Ozon») -> bankName: "Ozon Банк", bankId: "ozon"
+- Яндекс Пэй (желто-красно-черный, буква Я в круге, «Плюс», «Яндекс») -> bankName: "Яндекс Пэй", bankId: "yandex"
+- Газпромбанк -> bankName: "Газпромбанк", bankId: "gpb"
+- Райффайзенбанк -> bankName: "Райффайзенбанк", bankId: "raiffeisen"
+- Совкомбанк (Халва) -> bankName: "Совкомбанк", bankId: "sovcom"
+2. Месяц (0 = Январь, 1 = Февраль, ..., 11 = Декабрь) и год (${year}). Если в тексте скриншота указан месяц (например, "на октябрь", "сентябрь", "в ноябре"), используй его номер (0-11). Если нет явного указания, по умолчанию считай ${month} (месяц) и ${year} (год).
+3. Список ВСЕХ категорий кэшбэка, которые видны на скриншоте (как уже выбранные, так и доступные для выбора).
+ПРАВИЛА ИЗВЛЕЧЕНИЯ:
+- Извлекай реальные категории, видимые на скриншоте (например: "1% На все покупки", "5% Супермаркеты", "7% Аптеки", "10% Рестораны", "АЗС", "Такси", "Цветы" и т.д.).
+- Поле percent должно содержать ТОЛЬКО число (например: 5, а не "5%").
+- Если указаны лимиты или условия (например, "до 3000 ₽", "с подпиской Pro", "при покупках от 10 тыс"), запиши их в note.
+- СТРОГОЕ ПРАВИЛО: НИКОГДА не выдумывай категории! Извлекай только то, что реально написано на скриншоте. Если категорий нет или скриншот нечитаем, верни пустой список items: [].
 
 Верни СТРОГО чистый JSON:
 {
-  "bankName": "Альфа-Банк",
-  "bankId": "alfa",
+  "bankName": "Т-Банк",
+  "bankId": "tbank",
   "month": ${month},
   "year": ${year},
   "items": [
-    { "category": "Продукты", "percent": 5, "note": "до 5000 ₽" },
-    { "category": "АЗС", "percent": 5 },
-    { "category": "1% на всё", "percent": 1 }
+    { "category": "Супермаркеты", "percent": 5, "note": "до 3000 ₽" },
+    { "category": "Рестораны и кафе", "percent": 5 },
+    { "category": "1% на все покупки", "percent": 1 }
   ]
 }`;
 }
@@ -185,10 +199,11 @@ export class GeminiVisionService {
     const currentYear = targetYear || new Date().getFullYear();
 
     // 1. Try Server Proxy first (/api/scan/vision) — Bypasses client-side Geo-blocking & CORS
+    let serverErrorMessage = '';
     try {
       const serverUrl = await SyncService.getServerUrl();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const res = await fetch(`${serverUrl}/api/scan/vision`, {
         method: 'POST',
@@ -213,17 +228,26 @@ export class GeminiVisionService {
             bankId: resolved.id,
             month: data.scanResult.month ?? currentMonth,
             year: data.scanResult.year ?? currentYear,
-            items: data.scanResult.items || [],
+            items: Array.isArray(data.scanResult.items) ? data.scanResult.items : [],
             confidence: 0.95,
             rawText: JSON.stringify(data.scanResult),
           };
         }
+      } else {
+        try {
+          const errData = await res.json();
+          serverErrorMessage = errData.error || errData.message || '';
+        } catch {
+          serverErrorMessage = await res.text();
+        }
+        console.warn('Server vision scan returned status:', res.status, serverErrorMessage);
       }
-    } catch (serverErr) {
-      console.warn('Server proxy scan failed or offline, trying direct Google API:', serverErr);
+    } catch (serverErr: any) {
+      console.warn('Server proxy scan failed or offline, trying direct Google API:', serverErr?.message);
     }
 
     // 2. Direct Google AI Studio fallback (if client has VPN or non-blocked IP)
+    let directErrorMessage = '';
     if (cleanKey) {
       try {
         const directResult = await this.tryModel(
@@ -237,6 +261,7 @@ export class GeminiVisionService {
         if (directResult) return directResult;
       } catch (directErr: any) {
         console.warn('Direct Gemini API call failed:', directErr.message);
+        directErrorMessage = directErr.message;
         try {
           const fallbackResult = await this.tryModel(
             'gemini-1.5-flash',
@@ -247,14 +272,29 @@ export class GeminiVisionService {
             currentYear
           );
           if (fallbackResult) return fallbackResult;
-        } catch (fbErr) {
-          console.warn('Fallback model failed too:', fbErr);
+        } catch (fbErr: any) {
+          console.warn('Fallback model failed too:', fbErr.message);
+          directErrorMessage = fbErr.message || directErrorMessage;
         }
       }
     }
 
-    // 3. Graceful Fallback: Detect bank by screenshot color and signature!
-    return ImageBankDetector.detectFromBase64(base64Image);
+    // 3. If no key was configured anywhere, report missing key
+    if (!cleanKey) {
+      if (serverErrorMessage && (serverErrorMessage.includes('API') || serverErrorMessage.includes('ключ'))) {
+        throw new Error(serverErrorMessage);
+      }
+      throw new Error(
+        'Для распознавания скриншотов требуется указать бесплатный Gemini API ключ в «Настройках». Без ключа автоматическое распознавание текста со скриншотов недоступно.'
+      );
+    }
+
+    // 4. If key was provided but both attempts failed, inform the user
+    throw new Error(
+      directErrorMessage ||
+      serverErrorMessage ||
+      'Не удалось распознать скриншот через Gemini API. Проверьте правильность ключа и интернет-соединение.'
+    );
   }
 
   private static async tryModel(

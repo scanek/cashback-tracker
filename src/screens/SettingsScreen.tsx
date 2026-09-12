@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   Modal,
+  Linking,
 } from 'react-native';
 import { AppSettings, Bank, MonthlyCashback, AdvisorViewMode } from '../types';
 import { StorageService } from '../services/storage';
@@ -886,8 +887,50 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </Text>
           </View>
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Ключ используется для распознавания скриншотов банков. В проект уже встроен рабочий ключ по умолчанию.
+            Ключ используется для автоматического распознавания категорий и процентов со скриншотов любых банков РФ (Т-Банк, Сбер, Альфа и др.).
           </Text>
+
+          {/* Key Status Badge */}
+          <View style={{ marginBottom: 12 }}>
+            {apiKey && apiKey.trim() ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  alignSelf: 'flex-start',
+                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                  borderColor: '#22C55E',
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Check size={14} color="#22C55E" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: '700' }}>
+                  Ключ настроен
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  alignSelf: 'flex-start',
+                  backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                  borderColor: '#EAB308',
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Text style={{ color: '#EAB308', fontSize: 12, fontWeight: '700' }}>
+                  Ключ не введен (сканер работает в ручном режиме)
+                </Text>
+              </View>
+            )}
+          </View>
 
           <View
             style={[
@@ -942,10 +985,40 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </TouchableOpacity>
           </View>
 
+          {/* Quick link to get key */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingVertical: 9,
+              paddingHorizontal: 12,
+              marginBottom: 10,
+            }}
+            onPress={() => {
+              const url = 'https://aistudio.google.com/app/apikey';
+              if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                window.open(url, '_blank');
+              } else {
+                Linking.openURL(url).catch(() => {});
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <ExternalLink size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+            <Text style={{ color: colors.accentBlue, fontSize: 12, fontWeight: '700' }}>
+              Получить бесплатный ключ в Google AI Studio
+            </Text>
+          </TouchableOpacity>
+
           <View style={styles.apiKeyHint}>
             <Sparkles size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
             <Text style={[styles.apiKeyHintText, { color: colors.textSecondary }]}>
-              Работает с моделью Gemini 3.6 Flash / 2.5 Flash Vision.
+              Автоматически подключает быстрые модели Gemini 2.0 Flash / 1.5 Flash Vision.
             </Text>
           </View>
         </View>
