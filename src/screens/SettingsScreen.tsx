@@ -750,8 +750,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   >
                     Компактный список
                   </Text>
-                  <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 6 }}>
-                    <Text style={{ fontSize: 9, color: '#38BDF8', fontWeight: '800' }}>Хит</Text>
+                  <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, marginLeft: 6 }}>
+                    <Text style={{ fontSize: 11, color: '#38BDF8', fontWeight: '800' }}>Хит</Text>
                   </View>
                 </View>
                 <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>

@@ -280,7 +280,7 @@ export function CashbackWidget({
                   <TextWidget
                     text={group.bankName}
                     style={{
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: 'bold',
                       color: group.textColor as any,
                     }}

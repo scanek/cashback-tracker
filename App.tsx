@@ -7,6 +7,7 @@ import {
   StatusBar,
   Platform,
   useWindowDimensions,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -73,13 +74,65 @@ function MainAppContent() {
     bootstrap();
   }, []);
 
+  const navigateToTab = (tab: TabType) => {
+    setActiveTab(tab);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const targetHash = tab === 'dashboard' ? '' : `#${tab}`;
+      if (window.location.hash !== targetHash) {
+        window.history.pushState(null, '', targetHash || window.location.pathname);
+      }
+    }
+  };
+
+  // Android hardware Back button: return to dashboard if on another tab instead of closing the app
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const onBackPress = () => {
+      if (activeTab !== 'dashboard') {
+        navigateToTab('dashboard');
+        return true; // prevent exit
+      }
+      return false; // let Android minimize/exit
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [activeTab]);
+
+  // Web browser Back/Forward history support
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const handlePopState = () => {
+      const hash = window.location.hash.replace('#', '') as TabType;
+      const validTabs: TabType[] = ['dashboard', 'advisor', 'scan', 'cards', 'settings'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      } else {
+        setActiveTab('dashboard');
+      }
+    };
+
+    if (window.location.hash) {
+      handlePopState();
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
+
   const renderCurrentScreen = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
           <DashboardScreen
-            onNavigateToScan={() => setActiveTab('scan')}
-            onNavigateToAdvisor={() => setActiveTab('advisor')}
+            onNavigateToScan={() => navigateToTab('scan')}
+            onNavigateToAdvisor={() => navigateToTab('advisor')}
           />
         );
       case 'advisor':
@@ -89,12 +142,12 @@ function MainAppContent() {
       case 'cards':
         return <CardsManagementScreen />;
       case 'settings':
-        return <SettingsScreen onNavigateToScan={() => setActiveTab('scan')} />;
+        return <SettingsScreen onNavigateToScan={() => navigateToTab('scan')} />;
       default:
         return (
           <DashboardScreen
-            onNavigateToScan={() => setActiveTab('scan')}
-            onNavigateToAdvisor={() => setActiveTab('advisor')}
+            onNavigateToScan={() => navigateToTab('scan')}
+            onNavigateToAdvisor={() => navigateToTab('advisor')}
           />
         );
     }
@@ -160,7 +213,7 @@ function MainAppContent() {
           <View style={[styles.tabBarInner, isDesktop && styles.desktopTabBarInner]}>
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setActiveTab('dashboard')}
+              onPress={() => navigateToTab('dashboard')}
               activeOpacity={0.7}
             >
               <CreditCard
@@ -180,7 +233,7 @@ function MainAppContent() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setActiveTab('advisor')}
+              onPress={() => navigateToTab('advisor')}
               activeOpacity={0.7}
             >
               <Sparkles
@@ -200,7 +253,7 @@ function MainAppContent() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setActiveTab('cards')}
+              onPress={() => navigateToTab('cards')}
               activeOpacity={0.7}
             >
               <Wallet
@@ -220,7 +273,7 @@ function MainAppContent() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setActiveTab('settings')}
+              onPress={() => navigateToTab('settings')}
               activeOpacity={0.7}
             >
               <SettingsIcon
@@ -284,11 +337,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerVersionText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     textAlign: 'center',
-    opacity: 0.55,
-    marginTop: 2,
+    opacity: 0.8,
+    marginTop: 3,
     letterSpacing: 0.4,
   },
   tabBarInner: {

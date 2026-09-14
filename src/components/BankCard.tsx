@@ -64,37 +64,41 @@ export const BankCard: React.FC<BankCardProps> = ({
             <>
               {onShare && (
                 <TouchableOpacity
-                  style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)' }]}
+                  style={styles.miniButton}
                   onPress={onShare}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Share2 size={13} color={bank.textColor} />
+                  <Share2 size={15} color={bank.textColor} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 5 }]}
+                style={styles.miniButton}
                 onPress={onEdit}
                 activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
-                <Edit2 size={13} color={bank.textColor} />
+                <Edit2 size={15} color={bank.textColor} />
               </TouchableOpacity>
               {onDelete && (
                 <TouchableOpacity
-                  style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)', marginLeft: 5 }]}
+                  style={styles.miniButton}
                   onPress={onDelete}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Trash2 size={13} color={bank.textColor} />
+                  <Trash2 size={15} color={bank.textColor} />
                 </TouchableOpacity>
               )}
             </>
           ) : (
             <TouchableOpacity
-              style={[styles.miniButton, { backgroundColor: 'rgba(0,0,0,0.18)' }]}
+              style={styles.miniButton}
               onPress={onAdd}
               activeOpacity={0.7}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Plus size={15} color={bank.textColor} />
+              <Plus size={16} color={bank.textColor} />
             </TouchableOpacity>
           )}
         </View>
@@ -199,27 +203,27 @@ export const BankCard: React.FC<BankCardProps> = ({
 
 const styles = StyleSheet.create({
   cardWrapper: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
   bankInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     flexWrap: 'wrap',
-    marginRight: 6,
+    marginRight: 8,
   },
   bankName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     flexShrink: 1,
   },
@@ -227,87 +231,89 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 0,
+    gap: 6,
   },
   miniButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   body: {
-    padding: 8,
+    padding: 10,
   },
   categoriesFlexWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
     borderWidth: 1,
     maxWidth: '100%',
   },
   percentPill: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginRight: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 7,
+    marginRight: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
   percentText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
   },
   categoryTextWrapper: {
     flexShrink: 1,
   },
   categoryTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   categoryNote: {
-    fontSize: 10,
-    marginTop: 0,
+    fontSize: 11,
+    marginTop: 1,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 10,
   },
   emptyText: {
-    fontSize: 11,
-    marginBottom: 6,
+    fontSize: 12,
+    marginBottom: 8,
   },
   addCategoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
   },
   addCategoryBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   sharedTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EC4899',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
     flexShrink: 0,
   },
   sharedTagText: {
     color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

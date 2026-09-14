@@ -1689,8 +1689,8 @@ const styles = StyleSheet.create({
   },
   ownerFilterBtnActive: {},
   ownerFilterText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   ownerFilterTextActive: {
     fontWeight: '800',
@@ -1707,7 +1707,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     padding: 0,
   },
   clearBtn: {
@@ -1722,20 +1722,20 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
   },
   chipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   chipTextSelected: {
     fontWeight: '700',
   },
   chipPercentText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     marginLeft: 4,
   },
@@ -1827,7 +1827,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   accordionNote: {
-    fontSize: 10,
+    fontSize: 11,
     marginLeft: 4,
     flexShrink: 1,
   },
@@ -1868,7 +1868,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   bankTabBadgeText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   selectedBankBanner: {
@@ -1952,12 +1952,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tileExtraBadge: {
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   tileExtraText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
   },
   resultsContainer: {
@@ -1976,7 +1976,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   noResultsSub: {
-    fontSize: 11,
+    fontSize: 12,
   },
   matchCard: {
     borderRadius: 14,
@@ -1992,10 +1992,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFDD2D',
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   bestBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '900',
     color: '#0F172A',
   },
@@ -2046,44 +2046,44 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   bankTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   sharedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EC4899',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     marginLeft: 6,
   },
   sharedBadgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   sharedMiniTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EC4899',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    marginLeft: 5,
   },
   sharedMiniTagText: {
     color: '#FFFFFF',
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: '800',
   },
   matchReason: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
   },
   matchNote: {
-    fontSize: 10,
-    marginTop: 1,
+    fontSize: 11,
+    marginTop: 2,
   },
   percentBox: {
     paddingHorizontal: 8,
