@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -15,8 +15,7 @@ import { MONTH_NAMES_RU } from '../constants/banks';
 import { ShareService, SharedPayload } from '../services/share';
 import { StorageService } from '../services/storage';
 import { useTheme } from '../context/ThemeContext';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { pickJsonOrTextFile } from '../utils/filePicker';
 import {
   X,
   Check,
@@ -68,7 +67,6 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
   const [importTarget, setImportTarget] = useState<'shared' | 'my'>('shared');
   const [mergeMode, setMergeMode] = useState<'replace' | 'merge'>('replace');
   const [partnerName, setPartnerName] = useState<string>('Партнер');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -94,42 +92,14 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
   };
 
   const handlePickDocument = async () => {
-    if (Platform.OS === 'web') {
-      fileInputRef.current?.click();
-      return;
-    }
-
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/json', 'text/plain', '*/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const fileUri = result.assets[0].uri;
-        const content = await FileSystem.readAsStringAsync(fileUri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-        if (content) {
-          handleTextChange(content);
-        }
+      const content = await pickJsonOrTextFile();
+      if (content) {
+        handleTextChange(content);
       }
     } catch (e: any) {
       Alert.alert('Ошибка выбора файла', e.message || 'Не удалось прочитать файл');
     }
-  };
-
-  const handlePickFileWeb = (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        handleTextChange(content);
-      }
-    };
-    reader.readAsText(file);
   };
 
   const handleApplyImport = async () => {
@@ -255,15 +225,7 @@ export const ImportCashbackModal: React.FC<ImportCashbackModalProps> = ({
                   Код кэшбэка (CBHUB:...):
                 </Text>
 
-                {Platform.OS === 'web' && (
-                  <input
-                    type="file"
-                    ref={fileInputRef as any}
-                    style={{ display: 'none' }}
-                    accept=".json,application/json"
-                    onChange={handlePickFileWeb}
-                  />
-                )}
+
                 <TouchableOpacity
                   style={[styles.uploadFileBtn, { borderColor: colors.accentBlue }]}
                   onPress={handlePickDocument}

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Bank, MonthlyCashback, AppSettings } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
 import { SyncService } from './sync';
+import { SecureStorage } from './secureStorage';
 
 const STORAGE_KEYS = {
   BANKS: '@cashback_hub_banks_v1',
@@ -374,15 +375,33 @@ export class StorageService {
     try {
       await this.initializeDefaults();
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
-      if (!data) return DEFAULT_SETTINGS;
-      const parsed = JSON.parse(data);
+      const parsed = data ? JSON.parse(data) : {};
+
+      // Retrieve securely stored credentials
+      let geminiApiKey = await SecureStorage.getApiKey();
+      let pinCodeHash = await SecureStorage.getPinHash();
+      let pinSalt = await SecureStorage.getPinSalt();
+
+      // Auto-migrate legacy unencrypted credentials if found in settings JSON
+      if (!geminiApiKey && parsed.geminiApiKey && parsed.geminiApiKey.trim()) {
+        geminiApiKey = parsed.geminiApiKey.trim();
+        await SecureStorage.setApiKey(geminiApiKey);
+      }
+      if (!pinCodeHash && parsed.pinCodeHash) {
+        pinCodeHash = parsed.pinCodeHash;
+        await SecureStorage.setPinHash(pinCodeHash);
+      }
+      if (!pinSalt && parsed.pinSalt) {
+        pinSalt = parsed.pinSalt;
+        await SecureStorage.setPinSalt(pinSalt);
+      }
+
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        geminiApiKey:
-          parsed.geminiApiKey && parsed.geminiApiKey.trim()
-            ? parsed.geminiApiKey
-            : EMBEDDED_GEMINI_API_KEY,
+        geminiApiKey: geminiApiKey || EMBEDDED_GEMINI_API_KEY,
+        pinCodeHash,
+        pinSalt,
       };
     } catch (e) {
       return DEFAULT_SETTINGS;
@@ -392,7 +411,35 @@ export class StorageService {
   static async saveSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
     const current = await this.getSettings();
     const updated = { ...current, ...settings };
-    await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+
+    // Persist sensitive fields to SecureStorage
+    if (settings.geminiApiKey !== undefined) {
+      if (settings.geminiApiKey.trim()) {
+        await SecureStorage.setApiKey(settings.geminiApiKey);
+      } else {
+        await SecureStorage.clearApiKey();
+      }
+    }
+    if (settings.pinCodeHash !== undefined) {
+      if (settings.pinCodeHash) {
+        await SecureStorage.setPinHash(settings.pinCodeHash);
+      } else {
+        await SecureStorage.clearPin();
+      }
+    }
+    if (settings.pinSalt !== undefined && settings.pinSalt) {
+      await SecureStorage.setPinSalt(settings.pinSalt);
+    }
+
+    // Keep stored settings free of raw credentials
+    const sanitizedForStorage = {
+      ...updated,
+      geminiApiKey: '',
+      pinCodeHash: '',
+      pinSalt: '',
+    };
+
+    await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(sanitizedForStorage));
     SyncService.performSync().catch(() => {});
     return updated;
   }
@@ -406,7 +453,12 @@ export class StorageService {
       exportedAt: new Date().toISOString(),
       banks,
       cashbacks,
-      settings: { ...settings, geminiApiKey: '' }
+      settings: {
+        ...settings,
+        geminiApiKey: '',
+        pinCodeHash: '',
+        pinSalt: '',
+      }
     }, null, 2);
   }
 

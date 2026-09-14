@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,7 @@ import { PwaService } from '../services/pwa';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { APP_AUTHOR, APP_DEDICATION, APP_RELEASE_STRING } from '../constants/version';
 import { useTheme } from '../context/ThemeContext';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { pickJsonOrTextFile } from '../utils/filePicker';
 import {
   Key,
   Bell,
@@ -94,7 +93,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [isImportModalVisible, setIsImportModalVisible] = useState<boolean>(false);
   const [hasPinConfigured, setHasPinConfigured] = useState<boolean>(false);
   const [isPinSetupModalOpen, setIsPinSetupModalOpen] = useState<boolean>(false);
-  const backupFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
     const s = await StorageService.getSettings();
@@ -274,42 +272,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleImportBackup = async () => {
-    if (Platform.OS === 'web') {
-      backupFileInputRef.current?.click();
-      return;
-    }
-
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/json', 'text/plain', '*/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const fileUri = result.assets[0].uri;
-        const content = await FileSystem.readAsStringAsync(fileUri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-        if (content) {
-          processBackupJson(content);
-        }
+      const content = await pickJsonOrTextFile();
+      if (content) {
+        processBackupJson(content);
       }
     } catch (e: any) {
       showCustomAlert('Ошибка выбора файла', e.message || 'Не удалось открыть файл бэкапа');
     }
-  };
-
-  const handlePickBackupWeb = (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        processBackupJson(content);
-      }
-    };
-    reader.readAsText(file);
   };
 
   const processBackupJson = (jsonString: string) => {
@@ -1164,15 +1134,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Все ваши карты, категории и настройки хранятся строго локально на вашем устройстве.
           </Text>
 
-          {Platform.OS === 'web' && (
-            <input
-              type="file"
-              ref={backupFileInputRef as any}
-              style={{ display: 'none' }}
-              accept=".json,application/json"
-              onChange={handlePickBackupWeb}
-            />
-          )}
+
 
           <View style={styles.backupActionsGrid}>
             <View style={styles.backupRowTop}>

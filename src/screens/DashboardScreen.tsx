@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import { Bank, MonthlyCashback } from '../types';
 import { StorageService } from '../services/storage';
@@ -42,6 +43,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onNavigateToScan,
 }) => {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const isTwoColumn = width > 768;
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -347,7 +350,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         )}
 
         {/* Bank List based on Filter */}
-        <View style={styles.bankList}>
+        <View style={[styles.bankList, isTwoColumn && styles.bankListTwoColumn]}>
           {ownerFilter === 'my' ? (
             /* My personal cards: show all active banks */
             banks.map((bank) => {
@@ -355,15 +358,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 (c) => c.bankId === bank.id && !c.isShared
               );
               return (
-                <BankCard
+                <View
                   key={`${bank.id}-my`}
-                  bank={bank}
-                  cashback={myCb}
-                  onAdd={() => handleOpenAdd(bank, myCb)}
-                  onEdit={() => handleOpenAdd(bank, myCb)}
-                  onDelete={myCb ? () => handleDeleteCashback(bank.id, false) : undefined}
-                  onShare={myCb ? () => ShareService.shareBankCashback(bank, myCb) : undefined}
-                />
+                  style={[styles.cardItemWrapper, isTwoColumn && styles.cardItemWrapperTwoColumn]}
+                >
+                  <BankCard
+                    bank={bank}
+                    cashback={myCb}
+                    onAdd={() => handleOpenAdd(bank, myCb)}
+                    onEdit={() => handleOpenAdd(bank, myCb)}
+                    onDelete={myCb ? () => handleDeleteCashback(bank.id, false) : undefined}
+                    onShare={myCb ? () => ShareService.shareBankCashback(bank, myCb) : undefined}
+                  />
+                </View>
               );
             })
           ) : ownerFilter === 'all' ? (
@@ -373,15 +380,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 const bank = banks.find((b) => b.id === cb.bankId);
                 if (!bank) return null;
                 return (
-                  <BankCard
+                  <View
                     key={`${cb.bankId}-${cb.isShared ? 'shared' : 'my'}`}
-                    bank={bank}
-                    cashback={cb}
-                    onAdd={() => handleOpenAdd(bank, cb)}
-                    onEdit={() => handleOpenAdd(bank, cb)}
-                    onDelete={() => handleDeleteCashback(bank.id, cb.isShared)}
-                    onShare={() => ShareService.shareBankCashback(bank, cb)}
-                  />
+                    style={[styles.cardItemWrapper, isTwoColumn && styles.cardItemWrapperTwoColumn]}
+                  >
+                    <BankCard
+                      bank={bank}
+                      cashback={cb}
+                      onAdd={() => handleOpenAdd(bank, cb)}
+                      onEdit={() => handleOpenAdd(bank, cb)}
+                      onDelete={() => handleDeleteCashback(bank.id, cb.isShared)}
+                      onShare={() => ShareService.shareBankCashback(bank, cb)}
+                    />
+                  </View>
                 );
               })
             ) : (
@@ -405,15 +416,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   const bank = banks.find((b) => b.id === cb.bankId);
                   if (!bank) return null;
                   return (
-                    <BankCard
+                    <View
                       key={`${cb.bankId}-shared`}
-                      bank={bank}
-                      cashback={cb}
-                      onAdd={() => handleOpenAdd(bank, cb)}
-                      onEdit={() => handleOpenAdd(bank, cb)}
-                      onDelete={() => handleDeleteCashback(bank.id, true)}
-                      onShare={() => ShareService.shareBankCashback(bank, cb)}
-                    />
+                      style={[styles.cardItemWrapper, isTwoColumn && styles.cardItemWrapperTwoColumn]}
+                    >
+                      <BankCard
+                        bank={bank}
+                        cashback={cb}
+                        onAdd={() => handleOpenAdd(bank, cb)}
+                        onEdit={() => handleOpenAdd(bank, cb)}
+                        onDelete={() => handleDeleteCashback(bank.id, true)}
+                        onShare={() => ShareService.shareBankCashback(bank, cb)}
+                      />
+                    </View>
                   );
                 })
             ) : (
@@ -580,6 +595,18 @@ const styles = StyleSheet.create({
   },
   bankList: {
     marginTop: 4,
+  },
+  bankListTwoColumn: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cardItemWrapper: {
+    width: '100%',
+  },
+  cardItemWrapperTwoColumn: {
+    width: '49%',
   },
   emptyStateCard: {
     padding: 20,
