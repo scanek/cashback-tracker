@@ -17,7 +17,6 @@ import { ScanScreen } from './src/screens/ScanScreen';
 import { CardsManagementScreen } from './src/screens/CardsManagementScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { StorageService } from './src/services/storage';
-import { SyncService } from './src/services/sync';
 import { PwaService } from './src/services/pwa';
 import { NotificationService } from './src/services/notifications';
 import { SecurityService } from './src/services/security';
@@ -45,25 +44,11 @@ function MainAppContent() {
     const bootstrap = async () => {
       await StorageService.initializeDefaults();
 
-      // Check URL query parameters for instant 1-click pairing
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.search) {
-        try {
-          const urlParams = new URLSearchParams(window.location.search);
-          const pairKey = urlParams.get('pair') || urlParams.get('syncKey');
-          const serverUrl = urlParams.get('server') || urlParams.get('serverUrl');
-          if (pairKey) {
-            await SyncService.pairWithKey(pairKey, serverUrl || undefined);
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } catch {}
-      }
-
       // Check if PIN lock is active
       const requiresPin = await SecurityService.isPinRequired();
       setIsLocked(requiresPin);
       setIsReady(true);
 
-      SyncService.startAutoSync();
       PwaService.init();
       const settings = await StorageService.getSettings();
       if (settings.enableMonthlyReminders) {

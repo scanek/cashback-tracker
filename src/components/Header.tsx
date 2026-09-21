@@ -2,14 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Sparkles, Sun, Moon } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
-import { SyncStatusBadge } from './SyncStatusBadge';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
   showThemeToggle?: boolean;
-  showSyncBadge?: boolean;
-  onSyncPress?: () => void;
   rightAction?: {
     icon: React.ReactNode;
     onPress: () => void;
@@ -20,8 +17,6 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   subtitle,
   showThemeToggle = false,
-  showSyncBadge = false,
-  onSyncPress,
   rightAction,
 }) => {
   const { colors, theme, toggleTheme } = useTheme();
@@ -47,9 +42,6 @@ export const Header: React.FC<HeaderProps> = ({
       </View>
 
       <View style={styles.actionsGroup}>
-        {showSyncBadge && (
-          <SyncStatusBadge onPress={onSyncPress} compact={true} />
-        )}
 
         {showThemeToggle && (
           <TouchableOpacity
