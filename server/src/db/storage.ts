@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { User, Bank, MonthlyCashback, AppSettings } from '../types';
 
 interface DatabaseSchema {
@@ -10,7 +11,7 @@ interface DatabaseSchema {
   settings: Record<string, Partial<AppSettings>>; // key: userId -> AppSettings
 }
 
-const DATA_DIR = path.join(__dirname, '../../data');
+const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 export class Database {
@@ -22,6 +23,8 @@ export class Database {
     cashbacks: {},
     settings: {},
   };
+
+  private saveTimeout: NodeJS.Timeout | null = null;
 
   private constructor() {
     this.init();
@@ -42,17 +45,38 @@ export class Database {
       try {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         this.data = JSON.parse(raw);
+        if (!this.data.users) this.data.users = {};
+        if (!this.data.syncKeyToUserId) this.data.syncKeyToUserId = {};
+        if (!this.data.banks) this.data.banks = {};
+        if (!this.data.cashbacks) this.data.cashbacks = {};
+        if (!this.data.settings) this.data.settings = {};
+        console.log(`📦 [Database] Загружено пользователей: ${Object.keys(this.data.users).length}`);
       } catch (err) {
         console.error('Error loading db.json, creating new database', err);
-        this.persist();
+        this.persistSync();
       }
     } else {
-      this.persist();
+      this.persistSync();
     }
   }
 
-  private persist() {
+  /**
+   * Debounced asynchronous persistence to prevent heavy synchronous disk I/O
+   */
+  public schedulePersist() {
+    if (this.saveTimeout) return;
+    this.saveTimeout = setTimeout(() => {
+      this.saveTimeout = null;
+      this.persistSync();
+    }, 1200);
+  }
+
+  public persistSync() {
     try {
+      if (this.saveTimeout) {
+        clearTimeout(this.saveTimeout);
+        this.saveTimeout = null;
+      }
       const tempPath = `${DB_FILE}.tmp`;
       fs.writeFileSync(tempPath, JSON.stringify(this.data, null, 2), 'utf-8');
       fs.renameSync(tempPath, DB_FILE);
@@ -61,11 +85,31 @@ export class Database {
     }
   }
 
-  // User management
+  public getTotalUsersCount(): number {
+    return Object.keys(this.data.users).length;
+  }
+
+  // Safe user lookup by syncKey using timing-safe comparison
   public getUserBySyncKey(syncKey: string): User | null {
-    const userId = this.data.syncKeyToUserId[syncKey];
-    if (!userId) return null;
-    return this.data.users[userId] || null;
+    const cleanKey = (syncKey || '').trim();
+    if (!cleanKey) return null;
+
+    // Direct index lookup first
+    const directUserId = this.data.syncKeyToUserId[cleanKey];
+    if (directUserId && this.data.users[directUserId]) {
+      return this.data.users[directUserId];
+    }
+
+    // Constant-time check across keys if direct map missed due to case/formatting
+    const targetBuffer = Buffer.from(cleanKey.toLowerCase());
+    for (const [key, userId] of Object.entries(this.data.syncKeyToUserId)) {
+      const candidateBuffer = Buffer.from(key.toLowerCase());
+      if (candidateBuffer.length === targetBuffer.length && crypto.timingSafeEqual(candidateBuffer, targetBuffer)) {
+        return this.data.users[userId] || null;
+      }
+    }
+
+    return null;
   }
 
   public getUserByEmail(email: string): User | null {
@@ -84,121 +128,105 @@ export class Database {
     if (!this.data.banks[user.id]) this.data.banks[user.id] = [];
     if (!this.data.cashbacks[user.id]) this.data.cashbacks[user.id] = [];
     if (!this.data.settings[user.id]) this.data.settings[user.id] = {};
-    this.persist();
+    this.schedulePersist();
     return user;
   }
 
   public getOrCreateUserBySyncKey(syncKey: string): User {
-    const existing = this.getUserBySyncKey(syncKey);
+    const cleanKey = syncKey.trim();
+    const existing = this.getUserBySyncKey(cleanKey);
     if (existing) return existing;
 
     const newUser: User = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      syncKey,
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      syncKey: cleanKey,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     return this.createUser(newUser);
   }
 
-  // Banks Sync
-  public getBanks(userId: string, since?: string): Bank[] {
-    const userBanks = this.data.banks[userId] || [];
-    if (!since) return userBanks.filter((b) => !b.deletedAt);
-    const sinceTime = new Date(since).getTime();
-    return userBanks.filter((b) => {
-      const updatedTime = new Date(b.updatedAt || '1970-01-01').getTime();
-      return updatedTime > sinceTime;
-    });
+  // Banks data
+  public getUserBanks(userId: string): Bank[] {
+    return this.data.banks[userId] || [];
   }
 
-  public upsertBanks(userId: string, incomingBanks: Bank[]): Bank[] {
-    const current = this.data.banks[userId] || [];
-    const bankMap = new Map<string, Bank>();
-    current.forEach((b) => bankMap.set(b.id, b));
+  public saveUserBanks(userId: string, newBanks: Bank[]): Bank[] {
+    const currentBanks = this.data.banks[userId] || [];
+    const bankMap = new Map(currentBanks.map((b) => [b.id, b]));
 
-    for (const incoming of incomingBanks) {
-      const existing = bankMap.get(incoming.id);
-      if (!existing) {
-        bankMap.set(incoming.id, {
-          ...incoming,
+    for (const b of newBanks) {
+      const existing = bankMap.get(b.id);
+      if (!existing || new Date(b.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+        bankMap.set(b.id, {
+          ...b,
           userId,
-          updatedAt: incoming.updatedAt || new Date().toISOString(),
+          updatedAt: b.updatedAt || new Date().toISOString(),
         });
-      } else {
-        const existingUpdated = new Date(existing.updatedAt || '1970-01-01').getTime();
-        const incomingUpdated = new Date(incoming.updatedAt || '1970-01-01').getTime();
-        if (incomingUpdated >= existingUpdated) {
-          bankMap.set(incoming.id, {
-            ...existing,
-            ...incoming,
-            userId,
-            updatedAt: incoming.updatedAt || new Date().toISOString(),
-          });
-        }
       }
     }
 
-    this.data.banks[userId] = Array.from(bankMap.values());
-    this.persist();
-    return this.data.banks[userId];
+    const merged = Array.from(bankMap.values());
+    this.data.banks[userId] = merged;
+    this.touchUser(userId);
+    this.schedulePersist();
+    return merged;
   }
 
-  // Monthly Cashbacks Sync
-  public getCashbacks(userId: string, since?: string): MonthlyCashback[] {
-    const userCashbacks = this.data.cashbacks[userId] || [];
-    if (!since) return userCashbacks.filter((c) => !c.deletedAt);
-    const sinceTime = new Date(since).getTime();
-    return userCashbacks.filter((c) => {
-      const updatedTime = new Date(c.updatedAt || '1970-01-01').getTime();
-      return updatedTime > sinceTime;
-    });
+  // Cashbacks data
+  public getUserCashbacks(userId: string): MonthlyCashback[] {
+    return this.data.cashbacks[userId] || [];
   }
 
-  public upsertCashbacks(userId: string, incomingCashbacks: MonthlyCashback[]): MonthlyCashback[] {
-    const current = this.data.cashbacks[userId] || [];
-    const cbMap = new Map<string, MonthlyCashback>();
-    current.forEach((c) => cbMap.set(c.id, c));
+  public saveUserCashbacks(userId: string, newCashbacks: MonthlyCashback[]): MonthlyCashback[] {
+    const currentCashbacks = this.data.cashbacks[userId] || [];
+    const hasRealInCloud = currentCashbacks.some((c) => !c.id.startsWith('sample-'));
+    const cashbackMap = new Map(currentCashbacks.map((c) => [c.id, c]));
 
-    for (const incoming of incomingCashbacks) {
-      const existing = cbMap.get(incoming.id);
-      if (!existing) {
-        cbMap.set(incoming.id, {
-          ...incoming,
+    for (const c of newCashbacks) {
+      // Never let sample-* cashbacks overwrite real user data in cloud
+      if (hasRealInCloud && c.id && c.id.startsWith('sample-')) {
+        continue;
+      }
+      const existing = cashbackMap.get(c.id);
+      if (!existing || new Date(c.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+        cashbackMap.set(c.id, {
+          ...c,
           userId,
-          updatedAt: incoming.updatedAt || new Date().toISOString(),
+          updatedAt: c.updatedAt || new Date().toISOString(),
         });
-      } else {
-        const existingUpdated = new Date(existing.updatedAt || '1970-01-01').getTime();
-        const incomingUpdated = new Date(incoming.updatedAt || '1970-01-01').getTime();
-        if (incomingUpdated >= existingUpdated) {
-          cbMap.set(incoming.id, {
-            ...existing,
-            ...incoming,
-            userId,
-            updatedAt: incoming.updatedAt || new Date().toISOString(),
-          });
-        }
       }
     }
 
-    this.data.cashbacks[userId] = Array.from(cbMap.values());
-    this.persist();
-    return this.data.cashbacks[userId];
+    const merged = Array.from(cashbackMap.values());
+    this.data.cashbacks[userId] = merged;
+    this.touchUser(userId);
+    this.schedulePersist();
+    return merged;
   }
 
   // Settings
-  public getSettings(userId: string): Partial<AppSettings> {
+  public getUserSettings(userId: string): Partial<AppSettings> {
     return this.data.settings[userId] || {};
   }
 
-  public updateSettings(userId: string, incomingSettings: Partial<AppSettings>): Partial<AppSettings> {
-    const current = this.data.settings[userId] || {};
-    this.data.settings[userId] = {
-      ...current,
-      ...incomingSettings,
+  public saveUserSettings(userId: string, settings: Partial<AppSettings>): Partial<AppSettings> {
+    // Strip sensitive local fields before persisting in cloud settings
+    const cleanSettings = {
+      ...settings,
+      geminiApiKey: '',
     };
-    this.persist();
-    return this.data.settings[userId];
+    const current = this.data.settings[userId] || {};
+    const updated = { ...current, ...cleanSettings };
+    this.data.settings[userId] = updated;
+    this.touchUser(userId);
+    this.schedulePersist();
+    return updated;
+  }
+
+  private touchUser(userId: string) {
+    if (this.data.users[userId]) {
+      this.data.users[userId].updatedAt = new Date().toISOString();
+    }
   }
 }

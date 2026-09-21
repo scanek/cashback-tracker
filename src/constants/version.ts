@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 
-export const APP_VERSION = Constants.expoConfig?.version || '1.8.3';
-export const APP_BUILD = Constants.expoConfig?.android?.versionCode?.toString() || '21';
+export const APP_VERSION = Constants.expoConfig?.version || '1.8.4';
+export const APP_BUILD = Constants.expoConfig?.android?.versionCode?.toString() || '22';
 export const APP_NAME = 'Мои Кэшбеки';
 export const APP_AUTHOR = 'Александр Щеголев';
 export const APP_DEDICATION = 'Сделано для своей любимой жены Светик ❤️';

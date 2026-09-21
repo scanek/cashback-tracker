@@ -1,22 +1,27 @@
 import { Database } from '../db/storage';
-import { SyncPushPayload, SyncPullPayload, SyncPullResponse } from '../types';
+import { Bank, MonthlyCashback, AppSettings } from '../types';
 
 export class SyncService {
   private static db = Database.getInstance();
 
-  public static handlePush(payload: SyncPushPayload): { success: boolean; serverTime: string } {
-    const user = this.db.getOrCreateUserBySyncKey(payload.syncKey);
-
-    if (payload.banks && payload.banks.length > 0) {
-      this.db.upsertBanks(user.id, payload.banks);
+  public static handlePush(
+    userId: string,
+    payload: {
+      banks?: Bank[];
+      cashbacks?: MonthlyCashback[];
+      settings?: Partial<AppSettings>;
+    }
+  ): { success: boolean; serverTime: string } {
+    if (payload.banks && Array.isArray(payload.banks)) {
+      this.db.saveUserBanks(userId, payload.banks);
     }
 
-    if (payload.cashbacks && payload.cashbacks.length > 0) {
-      this.db.upsertCashbacks(user.id, payload.cashbacks);
+    if (payload.cashbacks && Array.isArray(payload.cashbacks)) {
+      this.db.saveUserCashbacks(userId, payload.cashbacks);
     }
 
-    if (payload.settings) {
-      this.db.updateSettings(user.id, payload.settings);
+    if (payload.settings && typeof payload.settings === 'object') {
+      this.db.saveUserSettings(userId, payload.settings);
     }
 
     return {
@@ -25,17 +30,47 @@ export class SyncService {
     };
   }
 
-  public static handlePull(payload: SyncPullPayload): SyncPullResponse {
-    const user = this.db.getOrCreateUserBySyncKey(payload.syncKey);
-    const banks = this.db.getBanks(user.id, payload.since);
-    const cashbacks = this.db.getCashbacks(user.id, payload.since);
-    const settings = this.db.getSettings(user.id);
+  public static handlePull(
+    userId: string,
+    since?: string
+  ): {
+    banks: Bank[];
+    cashbacks: MonthlyCashback[];
+    settings: Partial<AppSettings>;
+    serverTime: string;
+  } {
+    const allBanks = this.db.getUserBanks(userId);
+    const allCashbacks = this.db.getUserCashbacks(userId);
+    const settings = this.db.getUserSettings(userId);
+    const serverTime = new Date().toISOString();
+
+    if (!since) {
+      return {
+        banks: allBanks,
+        cashbacks: allCashbacks,
+        settings,
+        serverTime,
+      };
+    }
+
+    const sinceDate = new Date(since).getTime();
+    if (isNaN(sinceDate)) {
+      return {
+        banks: allBanks,
+        cashbacks: allCashbacks,
+        settings,
+        serverTime,
+      };
+    }
+
+    const filteredBanks = allBanks.filter((b) => new Date(b.updatedAt || 0).getTime() >= sinceDate);
+    const filteredCashbacks = allCashbacks.filter((c) => new Date(c.updatedAt || 0).getTime() >= sinceDate);
 
     return {
-      banks,
-      cashbacks,
+      banks: filteredBanks,
+      cashbacks: filteredCashbacks,
       settings,
-      serverTime: new Date().toISOString(),
+      serverTime,
     };
   }
 }

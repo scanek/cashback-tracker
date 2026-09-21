@@ -26,7 +26,6 @@ import { APP_VERSION } from './src/constants/version';
 import {
   CreditCard,
   Sparkles,
-  Camera,
   Wallet,
   Settings as SettingsIcon,
 } from 'lucide-react-native';
@@ -194,109 +193,253 @@ function MainAppContent() {
         backgroundColor={colors.background}
       />
 
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Main Content Area - Full width responsive container */}
+      <View style={[styles.container, isDesktop && styles.desktopLayout, { backgroundColor: colors.background }]}>
+        {/* Desktop Sidebar */}
+        {isDesktop && (
+          <View
+            style={[
+              styles.desktopSidebar,
+              {
+                backgroundColor: colors.tabBarBackground,
+                borderRightColor: colors.tabBarBorder,
+              },
+            ]}
+          >
+            <View style={styles.sidebarHeader}>
+              <View style={[styles.sidebarLogoBadge, { backgroundColor: colors.badgeBackground }]}>
+                <CreditCard size={20} color={colors.accent} />
+              </View>
+              <Text style={[styles.sidebarAppTitle, { color: colors.textPrimary }]}>
+                Кэшбэк-Хаб
+              </Text>
+            </View>
+
+            <View style={styles.sidebarNav}>
+              <TouchableOpacity
+                style={[
+                  styles.desktopNavItem,
+                  activeTab === 'dashboard' && { backgroundColor: colors.badgeBackground },
+                ]}
+                onPress={() => navigateToTab('dashboard')}
+                accessibilityRole="tab"
+                accessibilityLabel="Кэшбэк — главный экран"
+                accessibilityState={{ selected: activeTab === 'dashboard' }}
+              >
+                <CreditCard
+                  size={20}
+                  color={activeTab === 'dashboard' ? colors.accent : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.desktopNavLabel,
+                    { color: activeTab === 'dashboard' ? colors.accent : colors.textSecondary },
+                    activeTab === 'dashboard' && styles.desktopNavLabelActive,
+                  ]}
+                >
+                  Кэшбэк
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.desktopNavItem,
+                  activeTab === 'advisor' && { backgroundColor: colors.badgeBackground },
+                ]}
+                onPress={() => navigateToTab('advisor')}
+                accessibilityRole="tab"
+                accessibilityLabel="Чем платить — умный советник"
+                accessibilityState={{ selected: activeTab === 'advisor' }}
+              >
+                <Sparkles
+                  size={20}
+                  color={activeTab === 'advisor' ? colors.accentBlue : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.desktopNavLabel,
+                    { color: activeTab === 'advisor' ? colors.accentBlue : colors.textSecondary },
+                    activeTab === 'advisor' && styles.desktopNavLabelActive,
+                  ]}
+                >
+                  Чем платить
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.desktopNavItem,
+                  activeTab === 'cards' && { backgroundColor: colors.badgeBackground },
+                ]}
+                onPress={() => navigateToTab('cards')}
+                accessibilityRole="tab"
+                accessibilityLabel="Банки и карты"
+                accessibilityState={{ selected: activeTab === 'cards' }}
+              >
+                <Wallet
+                  size={20}
+                  color={activeTab === 'cards' ? colors.accentBlue : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.desktopNavLabel,
+                    { color: activeTab === 'cards' ? colors.accentBlue : colors.textSecondary },
+                    activeTab === 'cards' && styles.desktopNavLabelActive,
+                  ]}
+                >
+                  Банки
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.desktopNavItem,
+                  activeTab === 'settings' && { backgroundColor: colors.badgeBackground },
+                ]}
+                onPress={() => navigateToTab('settings')}
+                accessibilityRole="tab"
+                accessibilityLabel="Настройки приложения"
+                accessibilityState={{ selected: activeTab === 'settings' }}
+              >
+                <SettingsIcon
+                  size={20}
+                  color={activeTab === 'settings' ? colors.accentBlue : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.desktopNavLabel,
+                    { color: activeTab === 'settings' ? colors.accentBlue : colors.textSecondary },
+                    activeTab === 'settings' && styles.desktopNavLabelActive,
+                  ]}
+                >
+                  Настройки
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sidebarFooter}>
+              <Text style={[styles.footerVersionText, { color: colors.textMuted }]}>
+                v{APP_VERSION}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Main Content Area */}
         <View style={[styles.screenContainer, isDesktop && styles.desktopContainer]}>
           {renderCurrentScreen()}
         </View>
 
-        {/* Modern Navigation Bar */}
-        <View
-          style={[
-            styles.tabBar,
-            {
-              backgroundColor: colors.tabBarBackground,
-              borderTopColor: colors.tabBarBorder,
-            },
-          ]}
-        >
-          <View style={[styles.tabBarInner, isDesktop && styles.desktopTabBarInner]}>
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => navigateToTab('dashboard')}
-              activeOpacity={0.7}
-            >
-              <CreditCard
-                size={22}
-                color={activeTab === 'dashboard' ? colors.accent : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: activeTab === 'dashboard' ? colors.accent : colors.textMuted },
-                  activeTab === 'dashboard' && styles.tabLabelActive,
-                ]}
+        {/* Mobile Navigation Bar */}
+        {!isDesktop && (
+          <View
+            style={[
+              styles.tabBar,
+              {
+                backgroundColor: colors.tabBarBackground,
+                borderTopColor: colors.tabBarBorder,
+              },
+            ]}
+          >
+            <View style={styles.tabBarInner}>
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => navigateToTab('dashboard')}
+                activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityLabel="Кэшбэк"
+                accessibilityState={{ selected: activeTab === 'dashboard' }}
               >
-                Кэшбэк
-              </Text>
-            </TouchableOpacity>
+                <CreditCard
+                  size={22}
+                  color={activeTab === 'dashboard' ? colors.accent : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: activeTab === 'dashboard' ? colors.accent : colors.textMuted },
+                    activeTab === 'dashboard' && styles.tabLabelActive,
+                  ]}
+                >
+                  Кэшбэк
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => navigateToTab('advisor')}
-              activeOpacity={0.7}
-            >
-              <Sparkles
-                size={22}
-                color={activeTab === 'advisor' ? colors.accentBlue : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: activeTab === 'advisor' ? colors.accentBlue : colors.textMuted },
-                  activeTab === 'advisor' && styles.tabLabelActive,
-                ]}
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => navigateToTab('advisor')}
+                activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityLabel="Чем платить"
+                accessibilityState={{ selected: activeTab === 'advisor' }}
               >
-                Чем платить
-              </Text>
-            </TouchableOpacity>
+                <Sparkles
+                  size={22}
+                  color={activeTab === 'advisor' ? colors.accentBlue : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: activeTab === 'advisor' ? colors.accentBlue : colors.textMuted },
+                    activeTab === 'advisor' && styles.tabLabelActive,
+                  ]}
+                >
+                  Чем платить
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => navigateToTab('cards')}
-              activeOpacity={0.7}
-            >
-              <Wallet
-                size={22}
-                color={activeTab === 'cards' ? colors.accentBlue : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: activeTab === 'cards' ? colors.accentBlue : colors.textMuted },
-                  activeTab === 'cards' && styles.tabLabelActive,
-                ]}
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => navigateToTab('cards')}
+                activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityLabel="Банки"
+                accessibilityState={{ selected: activeTab === 'cards' }}
               >
-                Банки
-              </Text>
-            </TouchableOpacity>
+                <Wallet
+                  size={22}
+                  color={activeTab === 'cards' ? colors.accentBlue : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: activeTab === 'cards' ? colors.accentBlue : colors.textMuted },
+                    activeTab === 'cards' && styles.tabLabelActive,
+                  ]}
+                >
+                  Банки
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => navigateToTab('settings')}
-              activeOpacity={0.7}
-            >
-              <SettingsIcon
-                size={22}
-                color={activeTab === 'settings' ? colors.accentBlue : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: activeTab === 'settings' ? colors.accentBlue : colors.textMuted },
-                  activeTab === 'settings' && styles.tabLabelActive,
-                ]}
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => navigateToTab('settings')}
+                activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityLabel="Настройки"
+                accessibilityState={{ selected: activeTab === 'settings' }}
               >
-                Настройки
-              </Text>
-            </TouchableOpacity>
+                <SettingsIcon
+                  size={22}
+                  color={activeTab === 'settings' ? colors.accentBlue : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: activeTab === 'settings' ? colors.accentBlue : colors.textMuted },
+                    activeTab === 'settings' && styles.tabLabelActive,
+                  ]}
+                >
+                  Настройки
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Footer Version Indicator */}
+            <Text style={[styles.footerVersionText, { color: colors.textMuted }]}>
+              v{APP_VERSION}
+            </Text>
           </View>
-
-          {/* Footer Version Indicator */}
-          <Text style={[styles.footerVersionText, { color: colors.textMuted }]}>
-            v{APP_VERSION}
-          </Text>
-        </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -319,6 +462,60 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: '100%',
+  },
+  desktopLayout: {
+    flexDirection: 'row',
+  },
+  desktopSidebar: {
+    width: 220,
+    borderRightWidth: 1,
+    paddingTop: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+    justifyContent: 'space-between',
+  },
+  sidebarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 24,
+  },
+  sidebarLogoBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  sidebarAppTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  sidebarNav: {
+    flex: 1,
+    gap: 6,
+  },
+  desktopNavItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    minHeight: 44,
+  },
+  desktopNavLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  desktopNavLabelActive: {
+    fontWeight: '700',
+  },
+  sidebarFooter: {
+    paddingTop: 12,
+    alignItems: 'center',
   },
   screenContainer: {
     flex: 1,
@@ -350,13 +547,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     width: '100%',
   },
-  desktopTabBarInner: {
-    maxWidth: 900,
-  },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+    minHeight: 48,
+    paddingVertical: 4,
   },
   tabLabel: {
     fontSize: 11,
@@ -364,28 +560,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabLabelActive: {
-    fontWeight: '700',
-  },
-  centerScanTab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    marginTop: -14,
-  },
-  scanButtonCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  scanTabLabel: {
-    fontSize: 11,
-    marginTop: 2,
     fontWeight: '700',
   },
 });

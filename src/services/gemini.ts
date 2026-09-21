@@ -120,8 +120,13 @@ export class GeminiVisionService {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`,
-        { signal: controller.signal }
+        'https://generativelanguage.googleapis.com/v1beta/models',
+        {
+          signal: controller.signal,
+          headers: {
+            'x-goog-api-key': cleanKey,
+          },
+        }
       );
       clearTimeout(timeoutId);
 
@@ -313,7 +318,7 @@ export class GeminiVisionService {
     const currentYear = targetYear || new Date().getFullYear();
     const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout for mobile uploads
@@ -324,6 +329,7 @@ export class GeminiVisionService {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
         body: JSON.stringify({
           contents: [

@@ -9,15 +9,18 @@ const JWT_SECRET = process.env.JWT_SECRET || 'cashback-hub-super-secret-key-2026
 export class AuthService {
   private static db = Database.getInstance();
 
+  /**
+   * Generates a 128-bit cryptographically secure sync key formatted as:
+   * "cb-xxxx-xxxx-xxxx-xxxx"
+   */
   public static generateSyncKey(): string {
-    // Format: "CB-XXXX-YYYY"
-    const part1 = Math.floor(1000 + Math.random() * 9000).toString();
-    const part2 = Math.floor(1000 + Math.random() * 9000).toString();
-    return `CB-${part1}-${part2}`;
+    const bytes = crypto.randomBytes(8).toString('hex').toLowerCase();
+    return `cb-${bytes.slice(0, 4)}-${bytes.slice(4, 8)}-${bytes.slice(8, 12)}-${bytes.slice(12, 16)}`;
   }
 
   public static registerAnonymous(customSyncKey?: string): { user: User; token: string } {
-    const syncKey = customSyncKey ? customSyncKey.trim().toUpperCase() : this.generateSyncKey();
+    const rawKey = (customSyncKey || '').trim();
+    const syncKey = rawKey ? rawKey.toLowerCase() : this.generateSyncKey();
     const user = this.db.getOrCreateUserBySyncKey(syncKey);
     const token = jwt.sign({ userId: user.id, syncKey: user.syncKey }, JWT_SECRET, { expiresIn: '365d' });
     return { user, token };
@@ -32,7 +35,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 10);
     const syncKey = this.generateSyncKey();
     const newUser: User = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       email,
       passwordHash,
       syncKey,
@@ -67,5 +70,22 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Helper to verify user from Authorization Bearer or syncKey
+   */
+  public static authenticate(authHeader?: string, syncKey?: string): User | null {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      const payload = this.verifyToken(token);
+      if (payload && payload.syncKey) {
+        return this.db.getUserBySyncKey(payload.syncKey);
+      }
+    }
+    if (syncKey && syncKey.trim()) {
+      return this.db.getUserBySyncKey(syncKey.trim());
+    }
+    return null;
   }
 }

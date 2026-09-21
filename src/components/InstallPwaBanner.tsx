@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { PwaService } from '../services/pwa';
 import { useTheme } from '../context/ThemeContext';
-import { Download, X, Smartphone, Sparkles } from 'lucide-react-native';
+import { Download, X, Smartphone } from 'lucide-react-native';
 
 export const InstallPwaBanner: React.FC = () => {
   const { colors } = useTheme();
@@ -20,7 +20,7 @@ export const InstallPwaBanner: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  if (Platform.OS !== 'web' || dismissed || (!canInstall && PwaService.isStandalone())) {
+  if (Platform.OS !== 'web' || dismissed || PwaService.isStandalone() || !canInstall) {
     return null;
   }
 
@@ -33,31 +33,34 @@ export const InstallPwaBanner: React.FC = () => {
       style={[
         styles.banner,
         {
-          backgroundColor: 'rgba(30, 41, 59, 0.95)',
-          borderColor: '#38BDF8',
+          backgroundColor: colors.card,
+          borderColor: colors.accentBlue,
         },
       ]}
+      accessibilityLabel="Баннер установки веб-приложения"
     >
       <View style={styles.contentRow}>
-        <View style={styles.iconWrap}>
-          <Smartphone size={20} color="#38BDF8" />
+        <View style={[styles.iconWrap, { backgroundColor: colors.badgeBackground }]}>
+          <Smartphone size={20} color={colors.accentBlue} />
         </View>
 
         <View style={styles.textWrap}>
-          <Text style={[styles.title, { color: '#F8FAFC' }]}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             Установить как приложение
           </Text>
-          <Text style={[styles.subtitle, { color: '#94A3B8' }]}>
-            Работает 100% офлайн без интернета прямо с главного экрана телефона
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Работает офлайн без интернета прямо с главного экрана
           </Text>
         </View>
 
         <TouchableOpacity
           onPress={handleInstall}
           activeOpacity={0.8}
-          style={[styles.installBtn, { backgroundColor: '#38BDF8' }]}
+          style={[styles.installBtn, { backgroundColor: colors.accentBlue }]}
+          accessibilityRole="button"
+          accessibilityLabel="Установить приложение на главный экран"
         >
-          <Download size={15} color="#0F172A" style={{ marginRight: 5 }} />
+          <Download size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
           <Text style={styles.installBtnText}>Установить</Text>
         </TouchableOpacity>
 
@@ -65,8 +68,11 @@ export const InstallPwaBanner: React.FC = () => {
           onPress={() => setDismissed(true)}
           style={styles.closeBtn}
           activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Закрыть баннер"
         >
-          <X size={16} color="#64748B" />
+          <X size={18} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -82,7 +88,7 @@ const styles = StyleSheet.create({
     padding: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
   },
@@ -91,10 +97,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -110,23 +115,27 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 11,
     lineHeight: 14,
-    marginTop: 1,
+    marginTop: 2,
   },
   installBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    minHeight: 38,
     borderRadius: 10,
-    marginRight: 4,
+    marginRight: 6,
   },
   installBtnText: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

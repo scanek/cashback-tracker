@@ -85,6 +85,8 @@ const SAMPLE_CASHBACKS: MonthlyCashback[] = [
 ];
 
 export class StorageService {
+  private static settingsCache: AppSettings | null = null;
+
   static async initializeDefaults(): Promise<void> {
     try {
       const initialized = await AsyncStorage.getItem(STORAGE_KEYS.INITIALIZED);
@@ -120,7 +122,7 @@ export class StorageService {
       updatedAt: new Date().toISOString(),
     }));
     await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
   }
 
   static async addCustomBank(bank: Bank): Promise<Bank[]> {
@@ -131,7 +133,7 @@ export class StorageService {
     };
     const updated = [...banks, newBank];
     await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
     return updated;
   }
 
@@ -140,7 +142,7 @@ export class StorageService {
     const banks: Bank[] = raw ? JSON.parse(raw) : PRESET_BANKS;
     const updated = banks.map(b => b.id === bankId ? { ...b, isActive: !b.isActive, updatedAt: new Date().toISOString() } : b);
     await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(updated));
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
     return updated.filter(b => !b.deletedAt);
   }
 
@@ -166,7 +168,7 @@ export class StorageService {
       await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(updatedCb));
     }
 
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
     return updated.filter(b => !b.deletedAt);
   }
 
@@ -194,7 +196,7 @@ export class StorageService {
     }
 
     await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(merged));
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
     return merged.filter(b => !b.deletedAt);
   }
 
@@ -279,7 +281,7 @@ export class StorageService {
         const { WidgetService } = require('./widget');
         WidgetService.updateWidget();
       } catch {}
-      SyncService.performSync().catch(() => {});
+      SyncService.scheduleSync();
     }
 
     return {
@@ -333,7 +335,7 @@ export class StorageService {
     } catch {}
     
     // Auto-trigger background sync
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
     return updated.filter(c => !c.deletedAt);
   }
 
@@ -368,10 +370,13 @@ export class StorageService {
       WidgetService.updateWidget();
     } catch {}
 
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
   }
 
   static async getSettings(): Promise<AppSettings> {
+    if (this.settingsCache) {
+      return { ...this.settingsCache };
+    }
     try {
       await this.initializeDefaults();
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -396,13 +401,15 @@ export class StorageService {
         await SecureStorage.setPinSalt(pinSalt);
       }
 
-      return {
+      const settings: AppSettings = {
         ...DEFAULT_SETTINGS,
         ...parsed,
         geminiApiKey: geminiApiKey || EMBEDDED_GEMINI_API_KEY,
         pinCodeHash,
         pinSalt,
       };
+      this.settingsCache = settings;
+      return { ...settings };
     } catch (e) {
       return DEFAULT_SETTINGS;
     }
@@ -411,6 +418,7 @@ export class StorageService {
   static async saveSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
     const current = await this.getSettings();
     const updated = { ...current, ...settings };
+    this.settingsCache = updated;
 
     // Persist sensitive fields to SecureStorage
     if (settings.geminiApiKey !== undefined) {
@@ -440,7 +448,7 @@ export class StorageService {
     };
 
     await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(sanitizedForStorage));
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
     return updated;
   }
 
@@ -482,7 +490,7 @@ export class StorageService {
         const { WidgetService } = require('./widget');
         WidgetService.updateWidget();
       } catch {}
-      SyncService.performSync().catch(() => {});
+      SyncService.scheduleSync();
       return true;
     } catch (e) {
       console.error('Import failed', e);
@@ -491,9 +499,10 @@ export class StorageService {
   }
 
   static async resetToSampleData(): Promise<void> {
+    this.settingsCache = null;
     const banksWithTime = PRESET_BANKS.map(b => ({ ...b, updatedAt: new Date().toISOString() }));
     await AsyncStorage.setItem(STORAGE_KEYS.BANKS, JSON.stringify(banksWithTime));
     await AsyncStorage.setItem(STORAGE_KEYS.CASHBACKS, JSON.stringify(SAMPLE_CASHBACKS));
-    SyncService.performSync().catch(() => {});
+    SyncService.scheduleSync();
   }
 }
