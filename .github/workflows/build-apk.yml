@@ -32,11 +32,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🤖 Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 🤖 Setup Android SDK Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || yes | sdkmanager --licenses 2>/dev/null || true
 
       - name: 📦 Install npm dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: ⚙️ Expo Prebuild (Generate Native Android Project)
         run: npx expo prebuild --platform android --clean
@@ -45,7 +46,7 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: 🔍 Find and Rename Standalone APK
         run: |
