@@ -20,8 +20,6 @@ import { ShareService } from '../services/share';
 import { confirmDialog, showCustomAlert } from '../utils/alert';
 import { Header } from '../components/Header';
 import { ImportCashbackModal } from '../components/ImportCashbackModal';
-import { PairDeviceModal } from '../components/PairDeviceModal';
-import { SyncService } from '../services/sync';
 import { PwaService } from '../services/pwa';
 import { MONTH_NAMES_RU } from '../constants/banks';
 import { APP_AUTHOR, APP_DEDICATION, APP_RELEASE_STRING } from '../constants/version';
@@ -79,11 +77,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [advisorViewMode, setAdvisorViewMode] = useState<AdvisorViewMode>('compact');
   const [partnerName, setPartnerName] = useState<string>('Партнер');
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [syncKey, setSyncKey] = useState<string>('');
-  const [serverUrl, setServerUrl] = useState<string>('');
-  const [isPairModalVisible, setIsPairModalVisible] = useState<boolean>(false);
-  const [syncingNow, setSyncingNow] = useState<boolean>(false);
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState<boolean>(true);
 
   // Month state for sharing / export
   const [activeMonth, setActiveMonth] = useState<number>(new Date().getMonth());
@@ -101,12 +94,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setNotificationsEnabled(s.enableMonthlyReminders);
     setPartnerName(s.partnerName || 'Партнер');
     setAdvisorViewMode(s.advisorViewMode || 'compact');
-    setAutoSyncEnabled(s.autoSyncEnabled ?? true);
-
-    const key = await SyncService.getSyncKey();
-    const sUrl = await SyncService.getServerUrl();
-    setSyncKey(key);
-    setServerUrl(sUrl);
 
     const pinConfigured = await SecurityService.hasConfiguredPin();
     setHasPinConfigured(pinConfigured);
@@ -150,19 +137,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     } else {
       setActiveMonth((m) => m + 1);
     }
-  };
-
-  const handleCopySyncKey = async () => {
-    const normalized = SyncService.normalizeKey(syncKey) || syncKey;
-    if (!normalized) return;
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(normalized);
-        showCustomAlert('Скопировано', 'Синхро-код скопирован в буфер обмена!');
-        return;
-      } catch {}
-    }
-    showCustomAlert('Синхро-код', normalized);
   };
 
   const handleSetAdvisorViewMode = async (mode: AdvisorViewMode) => {
@@ -224,34 +198,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       },
       'Сбросить'
     );
-  };
-
-  const handleSaveServerUrl = async () => {
-    const clean = serverUrl.trim();
-    await StorageService.saveSettings({ syncServerUrl: clean });
-    showCustomAlert('Сохранено', `Адрес сервера синхронизации сохранен: ${clean}`);
-  };
-
-  const handleToggleAutoSync = async (enabled: boolean) => {
-    setAutoSyncEnabled(enabled);
-    await StorageService.saveSettings({ autoSyncEnabled: enabled });
-    if (enabled) {
-      SyncService.startAutoSync();
-    } else {
-      SyncService.stopAutoSync();
-    }
-  };
-
-  const handleManualSync = async () => {
-    setSyncingNow(true);
-    const success = await SyncService.performSync();
-    setSyncingNow(false);
-    if (success) {
-      await loadData();
-      showCustomAlert('Синхронизировано', 'Данные успешно обновлены из облака!');
-    } else {
-      showCustomAlert('Офлайн', 'Не удалось связаться с сервером. Проверьте адрес сервера и интернет.');
-    }
   };
 
   const handleExportBackup = async () => {
@@ -353,115 +299,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         )}
 
-        {/* Cloud Sync Card */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: '#3B82F6', borderWidth: 1.5 },
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <Cloud size={18} color="#60A5FA" style={{ marginRight: 8 }} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              Облачная синхронизация (Web ↔ Телефон)
-            </Text>
-          </View>
-          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-            Мгновенный обмен кэшбэками между браузером на компьютере и мобильным приложением.
-          </Text>
 
-          <View style={[styles.syncKeyBox, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-            <Text style={[styles.syncKeyLabel, { color: colors.textSecondary }]}>
-              Ваш цифровой синхро-код устройства:
-            </Text>
-            <View style={styles.syncKeyRow}>
-              <Text style={[styles.syncKeyVal, { color: colors.accent }]} numberOfLines={1}>
-                {SyncService.normalizeKey(syncKey) || syncKey || 'Загрузка...'}
-              </Text>
-              <TouchableOpacity
-                style={[styles.copyKeyBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                onPress={handleCopySyncKey}
-                activeOpacity={0.7}
-              >
-                <Copy size={13} color={colors.accent} style={{ marginRight: 4 }} />
-                <Text style={[styles.copyKeyBtnText, { color: colors.accent }]}>Копия</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.syncBtnCol}>
-            <TouchableOpacity
-              style={[styles.pairDeviceBtn, { backgroundColor: colors.accent }]}
-              onPress={() => setIsPairModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Smartphone size={16} color="#0F172A" style={{ marginRight: 6 }} />
-              <Text style={styles.pairDeviceBtnText}>Связать с другим устройством</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.manualSyncBtn, { backgroundColor: colors.inputBackground, borderColor: colors.accentBlue }]}
-              onPress={handleManualSync}
-              disabled={syncingNow}
-              activeOpacity={0.8}
-            >
-              <RefreshCw size={15} color={colors.accentBlue} style={{ marginRight: 6 }} />
-              <Text style={[styles.manualSyncBtnText, { color: colors.accentBlue }]}>
-                {syncingNow ? 'Синхронизация...' : 'Синхронизировать сейчас'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Server URL Config */}
-          <View style={styles.serverUrlSection}>
-            <Text style={[styles.serverUrlLabel, { color: colors.textSecondary }]}>
-              Адрес сервера синхронизации:
-            </Text>
-            <View style={styles.serverUrlRow}>
-              <TextInput
-                style={[styles.serverUrlInput, { backgroundColor: colors.inputBackground, color: colors.textPrimary, borderColor: colors.inputBorder }]}
-                placeholder="https://cash.scanek.ru"
-                placeholderTextColor={colors.textMuted}
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={[styles.serverUrlSaveBtn, { backgroundColor: colors.accentBlue }]}
-                onPress={handleSaveServerUrl}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.serverUrlSaveBtnText}>Сохранить</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Auto-sync Toggle */}
-          <View
-            style={[
-              styles.autoSyncRow,
-              { borderTopColor: colors.cardBorder },
-            ]}
-          >
-            <View style={{ flex: 1, marginRight: 10, minWidth: 0 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
-                Автоматическая синхронизация
-              </Text>
-              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                {autoSyncEnabled
-                  ? 'Фоновый обмен данными каждые 20 сек'
-                  : 'Синхронизация только по запросу (по кнопке)'}
-              </Text>
-            </View>
-            <Switch
-              value={autoSyncEnabled}
-              onValueChange={handleToggleAutoSync}
-              trackColor={{ false: colors.inputBackground, true: colors.accent }}
-              thumbColor={autoSyncEnabled ? '#0F172A' : colors.textSecondary}
-            />
-          </View>
-        </View>
 
         {/* Operations & Sharing Card */}
         <View
@@ -1225,12 +1063,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onImportComplete={loadData}
       />
 
-      {/* Cloud Sync & Pair Device Modal */}
-      <PairDeviceModal
-        visible={isPairModalVisible}
-        onClose={() => setIsPairModalVisible(false)}
-        onSuccess={loadData}
-      />
+
 
       {/* PIN Setup Modal */}
       <Modal

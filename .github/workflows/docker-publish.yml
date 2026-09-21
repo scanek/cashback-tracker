@@ -1,9 +1,6 @@
-﻿name: Build and Publish Docker Images
+name: Build and Publish Docker Images
 
 on:
-  push:
-    branches: [ "master" ]
-    tags: [ 'v*.*.*', 'v*' ]
   workflow_dispatch:
 
 env:

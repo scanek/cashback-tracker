@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   subtitle,
   showThemeToggle = false,
-  showSyncBadge = true,
+  showSyncBadge = false,
   onSyncPress,
   rightAction,
 }) => {

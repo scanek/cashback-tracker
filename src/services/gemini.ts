@@ -1,6 +1,5 @@
 import { ScanResult } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
-import { SyncService } from './sync';
 import { ImageBankDetector } from '../utils/imageAnalyzer';
 
 export function resolveBankId(bankName?: string, bankIdHint?: string): { id: string; name: string } {
@@ -114,10 +113,10 @@ export class GeminiVisionService {
       return { success: false, message: 'API ключ не введен' };
     }
 
-    // 1. Try Direct Google API
+    // Direct Google API Test
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
 
       const response = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models',
@@ -149,7 +148,7 @@ export class GeminiVisionService {
           return {
             success: true,
             modelName: modelId,
-            message: `Ключ работает отлично! Выбрана модель: ${modelId}`,
+            message: `Ключ проверен напрямую в Google AI! Выбрана модель: ${modelId}`,
           };
         }
       } else {
@@ -157,39 +156,20 @@ export class GeminiVisionService {
         return { success: false, message: `Ошибка Google (${response.status}): ${errorText}` };
       }
     } catch (directErr: any) {
-      console.warn('Direct key test failed, trying server proxy:', directErr);
-    }
-
-    // 2. Try Server Proxy if Direct Fetch was blocked
-    try {
-      const serverUrl = await SyncService.getServerUrl();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-      const serverRes = await fetch(`${serverUrl}/api/scan/test-key`, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: cleanKey }),
-      });
-      clearTimeout(timeoutId);
-
-      if (serverRes.ok) {
-        const resData = await serverRes.json();
-        return resData;
-      }
-    } catch (serverErr) {
-      console.warn('Server test-key proxy failed:', serverErr);
+      return {
+        success: false,
+        message: `Не удалось связаться с Google AI Studio (${directErr.message || 'сеть недоступна'}). Проверьте интернет или VPN.`,
+      };
     }
 
     return {
       success: false,
-      message: 'Не удалось связаться с Google AI Studio. Проверьте ключ и интернет.',
+      message: 'Не удалось получить список моделей Google AI.',
     };
   }
 
   /**
-   * Fast High-Performance Screenshot OCR with Robust AI Parsing
+   * Fast High-Performance Screenshot OCR with Direct Google Gemini Vision
    */
   static async analyzeScreenshot(
     base64Image: string,
@@ -203,70 +183,29 @@ export class GeminiVisionService {
     const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
     const currentYear = targetYear || new Date().getFullYear();
 
-    // 1. Try Server Proxy first (/api/scan/vision) — Bypasses client-side Geo-blocking & CORS
-    let serverErrorMessage = '';
-    try {
-      const serverUrl = await SyncService.getServerUrl();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const res = await fetch(`${serverUrl}/api/scan/vision`, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          base64Image,
-          apiKey: cleanKey,
-          targetMonth: currentMonth,
-          targetYear: currentYear,
-        }),
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.scanResult) {
-          const resolved = resolveBankId(data.scanResult.bankName, data.scanResult.bankId);
-          return {
-            bankName: resolved.name,
-            bankId: resolved.id,
-            month: data.scanResult.month ?? currentMonth,
-            year: data.scanResult.year ?? currentYear,
-            items: Array.isArray(data.scanResult.items) ? data.scanResult.items : [],
-            confidence: 0.95,
-            rawText: JSON.stringify(data.scanResult),
-          };
-        }
-      } else {
-        try {
-          const errData = await res.json();
-          serverErrorMessage = errData.error || errData.message || '';
-        } catch {
-          serverErrorMessage = await res.text();
-        }
-        console.warn('Server vision scan returned status:', res.status, serverErrorMessage);
-      }
-    } catch (serverErr: any) {
-      console.warn('Server proxy scan failed or offline, trying direct Google API:', serverErr?.message);
+    if (!cleanKey) {
+      throw new Error(
+        'Для распознавания скриншотов требуется указать бесплатный Gemini API ключ в «Настройках». Без ключа автоматическое распознавание текста со скриншотов недоступно.'
+      );
     }
 
-    // 2. Direct Google AI Studio fallback (if client has VPN or non-blocked IP)
-    let directErrorMessage = '';
-    if (cleanKey) {
-      try {
-        const directResult = await this.tryModel(
-          preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash',
-          base64Image,
-          mimeType,
-          cleanKey,
-          currentMonth,
-          currentYear
-        );
-        if (directResult) return directResult;
-      } catch (directErr: any) {
-        console.warn('Direct Gemini API call failed:', directErr.message);
-        directErrorMessage = directErr.message;
+    // Direct Google AI Studio call with automatic fallback
+    let lastError = '';
+    const primaryModel = preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash';
+    try {
+      const directResult = await this.tryModel(
+        primaryModel,
+        base64Image,
+        mimeType,
+        cleanKey,
+        currentMonth,
+        currentYear
+      );
+      if (directResult) return directResult;
+    } catch (directErr: any) {
+      console.warn(`Direct Gemini API call failed (${primaryModel}):`, directErr.message);
+      lastError = directErr.message;
+      if (!primaryModel.includes('1.5-flash')) {
         try {
           const fallbackResult = await this.tryModel(
             'gemini-1.5-flash',
@@ -279,26 +218,15 @@ export class GeminiVisionService {
           if (fallbackResult) return fallbackResult;
         } catch (fbErr: any) {
           console.warn('Fallback model failed too:', fbErr.message);
-          directErrorMessage = fbErr.message || directErrorMessage;
+          lastError = fbErr.message || lastError;
         }
       }
     }
 
-    // 3. If no key was configured anywhere, report missing key
-    if (!cleanKey) {
-      if (serverErrorMessage && (serverErrorMessage.includes('API') || serverErrorMessage.includes('ключ'))) {
-        throw new Error(serverErrorMessage);
-      }
-      throw new Error(
-        'Для распознавания скриншотов требуется указать бесплатный Gemini API ключ в «Настройках». Без ключа автоматическое распознавание текста со скриншотов недоступно.'
-      );
-    }
-
-    // 4. If key was provided but both attempts failed, inform the user
     throw new Error(
-      directErrorMessage ||
-      serverErrorMessage ||
-      'Не удалось распознать скриншот через Gemini API. Проверьте правильность ключа и интернет-соединение.'
+      lastError
+        ? `Ошибка Gemini API: ${lastError}`
+        : 'Не удалось распознать скриншот через Gemini API. Проверьте правильность ключа и интернет-соединение.'
     );
   }
 

@@ -17,7 +17,6 @@ import { Header } from '../components/Header';
 import { MonthSelector } from '../components/MonthSelector';
 import { BankCard } from '../components/BankCard';
 import { AddCashbackModal } from '../components/AddCashbackModal';
-import { PairDeviceModal } from '../components/PairDeviceModal';
 import { InstallPwaBanner } from '../components/InstallPwaBanner';
 import { confirmDialog, showCustomAlert } from '../utils/alert';
 import { MONTH_NAMES_RU } from '../constants/banks';
@@ -58,7 +57,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   // Modal State
   const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [pairModalVisible, setPairModalVisible] = useState<boolean>(false);
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
   const [editingCashback, setEditingCashback] = useState<MonthlyCashback | null>(null);
 
@@ -152,8 +150,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         title="Мои Кэшбеки"
         subtitle="Все кэшбэки в одном месте"
         showThemeToggle={true}
-        showSyncBadge={true}
-        onSyncPress={() => setPairModalVisible(true)}
+        showSyncBadge={false}
         rightAction={
           onNavigateToAdvisor
             ? {
@@ -474,12 +471,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         />
       )}
 
-      {/* Cloud Sync & Pair Device Modal */}
-      <PairDeviceModal
-        visible={pairModalVisible}
-        onClose={() => setPairModalVisible(false)}
-        onSuccess={() => loadData()}
-      />
+
     </View>
   );
 };
