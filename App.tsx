@@ -447,7 +447,7 @@ function MainAppContent() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={styles.rootProvider}>
       <ThemeProvider>
         <MainAppContent />
       </ThemeProvider>
@@ -456,23 +456,35 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  rootProvider: {
+    flex: 1,
+    height: '100%',
+    width: '100%',
+  },
   safeArea: {
     flex: 1,
+    height: '100%',
+    overflow: 'hidden',
   },
   container: {
     flex: 1,
     width: '100%',
+    height: '100%',
+    minHeight: 0,
+    overflow: 'hidden',
   },
   desktopLayout: {
     flexDirection: 'row',
   },
   desktopSidebar: {
     width: 220,
+    height: '100%',
     borderRightWidth: 1,
     paddingTop: 20,
     paddingHorizontal: 12,
     paddingBottom: 16,
     justifyContent: 'space-between',
+    flexShrink: 0,
   },
   sidebarHeader: {
     flexDirection: 'row',
@@ -520,11 +532,19 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
     width: '100%',
+    height: '100%',
+    minHeight: 0,
+    minWidth: 0,
+    overflow: 'hidden',
+    alignSelf: 'stretch',
   },
   desktopContainer: {
     maxWidth: 1200,
     width: '100%',
-    alignSelf: 'center',
+    height: '100%',
+    minHeight: 0,
+    alignSelf: 'stretch',
+    marginHorizontal: 'auto',
   },
   tabBar: {
     borderTopWidth: 1,

@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Modal,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { Bank, MonthlyCashback, SmartMatchResult, CashbackItem, AdvisorViewMode } from '../types';
 import { StorageService } from '../services/storage';
@@ -546,7 +547,9 @@ export const AdvisorScreen: React.FC = () => {
         style={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentBlue} />
+          Platform.OS !== 'web' ? (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentBlue} />
+          ) : undefined
         }
       >
         <View
@@ -1417,6 +1420,9 @@ export const AdvisorScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: '100%',
+    minHeight: 0,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,

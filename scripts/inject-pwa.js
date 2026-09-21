@@ -14,7 +14,23 @@ if (fs.existsSync(indexPath)) {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Мои Кэшбеки" />
-    <link rel="apple-touch-icon" href="/assets/icon.png" />
+    <style>
+      /* Ensure full height and smooth mouse wheel scrolling on Web */
+      html, body, #root {
+        height: 100% !important;
+        width: 100% !important;
+        overflow: hidden !important;
+      }
+      /* Ensure React Native Web ScrollViews have active overflow-y */
+      div[style*="overflow-y: auto"],
+      div[style*="overflow-y: scroll"],
+      .r-overflowY-auto,
+      .r-overflowY-scroll {
+        overflow-y: auto !important;
+        overscroll-behavior-y: contain !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+    </style>
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
