@@ -167,7 +167,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const res = await GeminiVisionService.testApiKeyAndGetModel(clean);
     setTestingKey(false);
     if (res.success) {
-      showCustomAlert('Успешно!', `Ключ работает! Модель: ${res.modelName}`);
+      await StorageService.saveSettings({
+        geminiApiKey: clean,
+        geminiModel: res.modelName || 'gemini-2.5-flash',
+      });
+      showCustomAlert('Успешно!', `Ключ работает и сохранен! Активная модель: ${res.modelName}`);
     } else {
       showCustomAlert('Ошибка ключа', res.message);
     }

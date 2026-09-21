@@ -14,7 +14,7 @@ export const EMBEDDED_GEMINI_API_KEY = '';
 
 const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: '',
-  geminiModel: 'gemini-3.6-flash',
+  geminiModel: 'gemini-2.5-flash',
   enableMonthlyReminders: true,
   activeTheme: 'dark',
   widgetTheme: 'dark',
@@ -414,6 +414,12 @@ export class StorageService {
         pinCodeHash,
         pinSalt,
       };
+
+      // Auto-migrate deprecated models (e.g. 1.5-flash or 2.0-flash) to modern active model
+      if (!settings.geminiModel || settings.geminiModel.includes('1.5') || settings.geminiModel.includes('2.0')) {
+        settings.geminiModel = 'gemini-2.5-flash';
+      }
+
       this.settingsCache = settings;
       return { ...settings };
     } catch (e) {

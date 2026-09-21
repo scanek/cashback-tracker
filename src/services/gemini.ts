@@ -1,6 +1,15 @@
 import { ScanResult } from '../types';
 import { PRESET_BANKS } from '../constants/banks';
 import { ImageBankDetector } from '../utils/imageAnalyzer';
+import { StorageService } from './storage';
+
+export const ACTIVE_GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-pro',
+];
 
 export function resolveBankId(bankName?: string, bankIdHint?: string): { id: string; name: string } {
   if (bankIdHint) {
@@ -96,7 +105,7 @@ function getSystemPrompt(targetMonth?: number, targetYear?: number): string {
 }
 
 export class GeminiVisionService {
-  private static cachedWorkingModel: string = 'gemini-2.0-flash';
+  private static cachedWorkingModel: string = 'gemini-2.5-flash';
 
   static sanitizeApiKey(key: string): string {
     return key
@@ -135,20 +144,27 @@ export class GeminiVisionService {
         const visionModels = models.filter(
           (m: any) =>
             m.supportedGenerationMethods &&
-            m.supportedGenerationMethods.includes('generateContent')
+            m.supportedGenerationMethods.includes('generateContent') &&
+            !m.name.includes('1.5') &&
+            !m.name.includes('2.0')
         );
 
         if (visionModels.length > 0) {
           const preferred =
-            visionModels.find((m) => m.name.includes('gemini-2.0-flash')) ||
-            visionModels.find((m) => m.name.includes('gemini-1.5-flash')) ||
+            visionModels.find((m) => m.name.includes('gemini-2.5-flash') && !m.name.includes('lite')) ||
+            visionModels.find((m) => m.name.includes('gemini-2.5-flash-lite')) ||
+            visionModels.find((m) => m.name.includes('gemini-3.6-flash')) ||
+            visionModels.find((m) => m.name.includes('gemini-3.1-flash-lite')) ||
+            visionModels.find((m) => m.name.includes('gemini-2.5-pro')) ||
+            visionModels.find((m) => m.name.includes('flash')) ||
             visionModels[0];
           const modelId = preferred.name.replace(/^models\//, '');
           this.cachedWorkingModel = modelId;
+          StorageService.saveSettings({ geminiModel: modelId }).catch(() => {});
           return {
             success: true,
             modelName: modelId,
-            message: `Ключ проверен напрямую в Google AI! Выбрана модель: ${modelId}`,
+            message: `Ключ проверен напрямую в Google AI! Выбрана активная модель: ${modelId}`,
           };
         }
       } else {
@@ -170,6 +186,7 @@ export class GeminiVisionService {
 
   /**
    * Fast High-Performance Screenshot OCR with Direct Google Gemini Vision
+   * Includes multi-model automatic fallback cascade across all active 2.5 and 3.x models
    */
   static async analyzeScreenshot(
     base64Image: string,
@@ -189,37 +206,39 @@ export class GeminiVisionService {
       );
     }
 
-    // Direct Google AI Studio call with automatic fallback
+    const cleanedPreferred = preferredModel ? preferredModel.replace(/^models\//, '').trim() : '';
+    const isValidModel = (m?: string) => Boolean(m && !m.includes('1.5') && !m.includes('2.0'));
+
+    // Resilient cascade: try active models sequentially until one succeeds
+    const candidates = Array.from(
+      new Set(
+        [
+          isValidModel(cleanedPreferred) ? cleanedPreferred : null,
+          isValidModel(this.cachedWorkingModel) ? this.cachedWorkingModel : null,
+          ...ACTIVE_GEMINI_MODELS,
+        ].filter((m): m is string => Boolean(m))
+      )
+    );
+
     let lastError = '';
-    const primaryModel = preferredModel || this.cachedWorkingModel || 'gemini-2.0-flash';
-    try {
-      const directResult = await this.tryModel(
-        primaryModel,
-        base64Image,
-        mimeType,
-        cleanKey,
-        currentMonth,
-        currentYear
-      );
-      if (directResult) return directResult;
-    } catch (directErr: any) {
-      console.warn(`Direct Gemini API call failed (${primaryModel}):`, directErr.message);
-      lastError = directErr.message;
-      if (!primaryModel.includes('1.5-flash')) {
-        try {
-          const fallbackResult = await this.tryModel(
-            'gemini-1.5-flash',
-            base64Image,
-            mimeType,
-            cleanKey,
-            currentMonth,
-            currentYear
-          );
-          if (fallbackResult) return fallbackResult;
-        } catch (fbErr: any) {
-          console.warn('Fallback model failed too:', fbErr.message);
-          lastError = fbErr.message || lastError;
+    for (const candidate of candidates) {
+      try {
+        const result = await this.tryModel(
+          candidate,
+          base64Image,
+          mimeType,
+          cleanKey,
+          currentMonth,
+          currentYear
+        );
+        if (result) {
+          this.cachedWorkingModel = candidate;
+          StorageService.saveSettings({ geminiModel: candidate }).catch(() => {});
+          return result;
         }
+      } catch (err: any) {
+        console.warn(`Gemini API candidate (${candidate}) failed:`, err.message);
+        lastError = err.message || String(err);
       }
     }
 
@@ -251,6 +270,16 @@ export class GeminiVisionService {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout for mobile uploads
 
+    const isThinkingModel = cleanModel.includes('2.5') || cleanModel.includes('3.');
+    const generationConfig: Record<string, any> = {
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+    };
+    if (isThinkingModel) {
+      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -275,11 +304,7 @@ export class GeminiVisionService {
               ],
             },
           ],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 1024,
-            responseMimeType: 'application/json',
-          },
+          generationConfig,
         }),
       });
 
@@ -289,7 +314,9 @@ export class GeminiVisionService {
       }
 
       const json = await response.json();
-      const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const parts = json?.candidates?.[0]?.content?.parts || [];
+      const answerPart = parts.find((p: any) => p.text && !p.thought) || parts[parts.length - 1];
+      const rawText = answerPart?.text || '';
 
       const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleaned);
