@@ -7,6 +7,9 @@ on:
       - 'v*'
     branches:
       - master
+    paths-ignore:
+      - '.github/**'
+      - 'README.md'
 
 permissions:
   contents: write
@@ -63,7 +66,7 @@ jobs:
           name: Мои_Кэшбеки_APK
           path: ./Мои_Кэшбеки.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
 
       - name: 🚀 Attach APK to GitHub Release (If tagged)
         if: startsWith(github.ref, 'refs/tags/')
