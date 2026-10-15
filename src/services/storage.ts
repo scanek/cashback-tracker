@@ -15,6 +15,7 @@ export const EMBEDDED_GEMINI_API_KEY = '';
 const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: '',
   geminiModel: 'gemini-2.5-flash',
+  geminiApiUrl: 'https://generativelanguage.googleapis.com/v1beta',
   enableMonthlyReminders: true,
   activeTheme: 'dark',
   widgetTheme: 'dark',

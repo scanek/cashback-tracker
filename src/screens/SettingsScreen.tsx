@@ -57,6 +57,12 @@ import {
   List,
   Search,
   CreditCard,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  Server,
+  Cpu,
 } from 'lucide-react-native';
 import { SecurityService } from '../services/security';
 import { PinLockScreen } from './PinLockScreen';
@@ -73,6 +79,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [apiKey, setApiKey] = useState<string>('');
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [testingKey, setTestingKey] = useState<boolean>(false);
+  const [modelName, setModelName] = useState<string>('gemini-2.5-flash');
+  const [apiUrl, setApiUrl] = useState<string>('https://generativelanguage.googleapis.com/v1beta');
+  const [showAdvancedAi, setShowAdvancedAi] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [advisorViewMode, setAdvisorViewMode] = useState<AdvisorViewMode>('compact');
   const [partnerName, setPartnerName] = useState<string>('Партнер');
@@ -94,6 +103,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setNotificationsEnabled(s.enableMonthlyReminders);
     setPartnerName(s.partnerName || 'Партнер');
     setAdvisorViewMode(s.advisorViewMode || 'compact');
+    setModelName(s.geminiModel || 'gemini-2.5-flash');
+    setApiUrl(s.geminiApiUrl || 'https://generativelanguage.googleapis.com/v1beta');
 
     const pinConfigured = await SecurityService.hasConfiguredPin();
     setHasPinConfigured(pinConfigured);
@@ -145,9 +156,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleSaveApiKey = async () => {
-    const clean = GeminiVisionService.sanitizeApiKey(apiKey);
-    await StorageService.saveSettings({ geminiApiKey: clean });
-    showCustomAlert('Сохранено', 'Gemini API ключ сохранен!');
+    const cleanKey = GeminiVisionService.sanitizeApiKey(apiKey);
+    const cleanModel = modelName.trim() || 'gemini-2.5-flash';
+    const cleanUrl = apiUrl.trim() || 'https://generativelanguage.googleapis.com/v1beta';
+    await StorageService.saveSettings({
+      geminiApiKey: cleanKey,
+      geminiModel: cleanModel,
+      geminiApiUrl: cleanUrl,
+    });
+    showCustomAlert('Сохранено', `Настройки AI сохранены!\nМодель: ${cleanModel}`);
   };
 
   const handleSavePartnerName = async () => {
@@ -163,17 +180,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       showCustomAlert('Ошибка', 'Сначала введите API ключ в поле выше');
       return;
     }
+    const cleanUrl = apiUrl.trim() || 'https://generativelanguage.googleapis.com/v1beta';
     setTestingKey(true);
-    const res = await GeminiVisionService.testApiKeyAndGetModel(clean);
+    const res = await GeminiVisionService.testApiKeyAndGetModel(clean, cleanUrl);
     setTestingKey(false);
     if (res.success) {
+      const activeModel = res.modelName || modelName || 'gemini-2.5-flash';
+      setModelName(activeModel);
       await StorageService.saveSettings({
         geminiApiKey: clean,
-        geminiModel: res.modelName || 'gemini-2.5-flash',
+        geminiModel: activeModel,
+        geminiApiUrl: cleanUrl,
       });
-      showCustomAlert('Успешно!', `Ключ работает и сохранен! Активная модель: ${res.modelName}`);
+      showCustomAlert('Успешно!', `Ключ проверен и сохранен!\nМодель: ${activeModel}`);
     } else {
-      showCustomAlert('Ошибка ключа', res.message);
+      showCustomAlert('Ошибка проверки', res.message);
     }
   };
 
@@ -702,14 +723,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Ключ используется для автоматического распознавания категорий и процентов со скриншотов любых банков РФ (Т-Банк, Сбер, Альфа и др.).
           </Text>
 
-          {/* Key Status Badge */}
-          <View style={{ marginBottom: 12 }}>
+          {/* Key Status & Active Model Badges */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
             {apiKey && apiKey.trim() ? (
               <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  alignSelf: 'flex-start',
                   backgroundColor: 'rgba(34, 197, 94, 0.15)',
                   borderColor: '#22C55E',
                   borderWidth: 1,
@@ -728,7 +748,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  alignSelf: 'flex-start',
                   backgroundColor: 'rgba(234, 179, 8, 0.15)',
                   borderColor: '#EAB308',
                   borderWidth: 1,
@@ -738,10 +757,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 }}
               >
                 <Text style={{ color: '#EAB308', fontSize: 12, fontWeight: '700' }}>
-                  Ключ не введен (сканер работает в ручном режиме)
+                  Ключ не введен (ручной ввод)
                 </Text>
               </View>
             )}
+
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                borderColor: colors.accentBlue,
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+              }}
+            >
+              <Cpu size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+              <Text style={{ color: colors.accentBlue, fontSize: 12, fontWeight: '700' }}>
+                {modelName || 'gemini-2.5-flash'}
+              </Text>
+            </View>
           </View>
 
           <View
@@ -771,6 +808,150 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </TouchableOpacity>
           </View>
 
+          {/* Collapsible toggle for Advanced AI Settings */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              marginTop: 10,
+              marginBottom: 12,
+            }}
+            onPress={() => setShowAdvancedAi(!showAdvancedAi)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Sliders size={16} color={colors.accent} style={{ marginRight: 8 }} />
+              <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                Расширенные настройки (модель и прокси)
+              </Text>
+            </View>
+            {showAdvancedAi ? (
+              <ChevronUp size={16} color={colors.textSecondary} />
+            ) : (
+              <ChevronDown size={16} color={colors.textSecondary} />
+            )}
+          </TouchableOpacity>
+
+          {showAdvancedAi && (
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 12,
+                gap: 12,
+              }}
+            >
+              {/* Custom Model Name Field */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Cpu size={14} color={colors.accent} style={{ marginRight: 6 }} />
+                  <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
+                    Имя модели
+                  </Text>
+                </View>
+                <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>
+                  Укажите имя модели Google или кастомное имя (например, gemini-argon или модель вашего прокси):
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, marginBottom: 8 },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.apiInput, { color: colors.textPrimary }]}
+                    placeholder="gemini-2.5-flash"
+                    placeholderTextColor={colors.textMuted}
+                    value={modelName}
+                    onChangeText={setModelName}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                {/* Fast Model Presets */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.6-flash'].map((preset) => (
+                    <TouchableOpacity
+                      key={preset}
+                      onPress={() => setModelName(preset)}
+                      style={{
+                        backgroundColor: modelName === preset ? colors.accent : colors.inputBackground,
+                        borderColor: modelName === preset ? colors.accent : colors.cardBorder,
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: modelName === preset ? '#0F172A' : colors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {preset}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Custom API URL / Proxy Field */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Server size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
+                  <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
+                    API Endpoint / URL прокси
+                  </Text>
+                </View>
+                <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>
+                  По умолчанию официальный Google AI Studio. Можно указать свой прокси (на OMV, Cloudflare или шлюз) для обхода блокировок без пересборки APK:
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, marginBottom: 8 },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.apiInput, { color: colors.textPrimary }]}
+                    placeholder="https://generativelanguage.googleapis.com/v1beta"
+                    placeholderTextColor={colors.textMuted}
+                    value={apiUrl}
+                    onChangeText={setApiUrl}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={() => setApiUrl('https://generativelanguage.googleapis.com/v1beta')}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    paddingVertical: 4,
+                  }}
+                >
+                  <RotateCcw size={12} color={colors.accentBlue} style={{ marginRight: 5 }} />
+                  <Text style={{ color: colors.accentBlue, fontSize: 11, fontWeight: '600' }}>
+                    Сбросить на Google по умолчанию
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           <View style={styles.keyActionsRow}>
             <TouchableOpacity
               style={[styles.saveKeyBtn, { backgroundColor: colors.accent }]}
@@ -778,7 +959,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               activeOpacity={0.8}
             >
               <Check size={16} color="#0F172A" style={{ marginRight: 6 }} />
-              <Text style={styles.saveKeyBtnText}>Сохранить</Text>
+              <Text style={styles.saveKeyBtnText}>Сохранить настройки</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -830,7 +1011,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={styles.apiKeyHint}>
             <Sparkles size={14} color={colors.accentBlue} style={{ marginRight: 6 }} />
             <Text style={[styles.apiKeyHintText, { color: colors.textSecondary }]}>
-              Автоматически подключает быстрые модели Gemini 2.0 Flash / 1.5 Flash Vision.
+              Автоматически использует быстрые модели Gemini 2.5/3.x либо ваш собственный прокси-шлюз.
             </Text>
           </View>
         </View>

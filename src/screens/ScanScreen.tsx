@@ -88,7 +88,8 @@ export const ScanScreen: React.FC = () => {
         settings.geminiApiKey,
         settings.geminiModel,
         now.getMonth(),
-        now.getFullYear()
+        now.getFullYear(),
+        settings.geminiApiUrl
       );
 
       setSelectedImageUri(uri);

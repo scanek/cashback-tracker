@@ -55,6 +55,7 @@ export type AdvisorViewMode = 'compact' | 'spotlight' | 'by_bank' | 'grid';
 export interface AppSettings {
   geminiApiKey: string;
   geminiModel: string;
+  geminiApiUrl?: string; // Custom endpoint/proxy, default: https://generativelanguage.googleapis.com/v1beta
   enableMonthlyReminders: boolean;
   activeTheme: 'dark' | 'light' | 'system';
   widgetTheme?: 'dark' | 'light' | 'transparent';

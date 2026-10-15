@@ -115,27 +115,28 @@ export class GeminiVisionService {
   }
 
   static async testApiKeyAndGetModel(
-    apiKey: string
+    apiKey: string,
+    customBaseUrl?: string
   ): Promise<{ success: boolean; modelName?: string; message: string }> {
     const cleanKey = this.sanitizeApiKey(apiKey);
     if (!cleanKey) {
       return { success: false, message: 'API ключ не введен' };
     }
 
-    // Direct Google API Test
+    const baseUrl = (customBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+    const url = `${baseUrl}/models`;
+
+    // Direct Google or Custom Proxy API Test
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-      const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models',
-        {
-          signal: controller.signal,
-          headers: {
-            'x-goog-api-key': cleanKey,
-          },
-        }
-      );
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'x-goog-api-key': cleanKey,
+        },
+      });
       clearTimeout(timeoutId);
 
       if (response.ok) {
@@ -164,23 +165,23 @@ export class GeminiVisionService {
           return {
             success: true,
             modelName: modelId,
-            message: `Ключ проверен напрямую в Google AI! Выбрана активная модель: ${modelId}`,
+            message: `Ключ проверен напрямую (${baseUrl})! Выбрана активная модель: ${modelId}`,
           };
         }
       } else {
         const errorText = await response.text();
-        return { success: false, message: `Ошибка Google (${response.status}): ${errorText}` };
+        return { success: false, message: `Ошибка API (${response.status}): ${errorText}` };
       }
     } catch (directErr: any) {
       return {
         success: false,
-        message: `Не удалось связаться с Google AI Studio (${directErr.message || 'сеть недоступна'}). Проверьте интернет или VPN.`,
+        message: `Не удалось связаться с AI-сервером (${directErr.message || 'сеть недоступна'}). Проверьте интернет или URL прокси.`,
       };
     }
 
     return {
       success: false,
-      message: 'Не удалось получить список моделей Google AI.',
+      message: 'Не удалось получить список моделей AI.',
     };
   }
 
@@ -194,7 +195,8 @@ export class GeminiVisionService {
     apiKey?: string,
     preferredModel?: string,
     targetMonth?: number,
-    targetYear?: number
+    targetYear?: number,
+    customBaseUrl?: string
   ): Promise<ScanResult> {
     const cleanKey = this.sanitizeApiKey(apiKey || '');
     const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
@@ -229,7 +231,8 @@ export class GeminiVisionService {
           mimeType,
           cleanKey,
           currentMonth,
-          currentYear
+          currentYear,
+          customBaseUrl
         );
         if (result) {
           this.cachedWorkingModel = candidate;
@@ -255,7 +258,8 @@ export class GeminiVisionService {
     mimeType: string,
     apiKey: string,
     targetMonth?: number,
-    targetYear?: number
+    targetYear?: number,
+    customBaseUrl?: string
   ): Promise<ScanResult> {
     const cleanModel = model.replace(/^models\//, '');
     const cleanBase64 = base64Image
@@ -265,7 +269,8 @@ export class GeminiVisionService {
     const currentYear = targetYear || new Date().getFullYear();
     const currentMonth = targetMonth !== undefined ? targetMonth : new Date().getMonth();
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent`;
+    const baseUrl = (customBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+    const url = `${baseUrl}/models/${cleanModel}:generateContent`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout for mobile uploads
